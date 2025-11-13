@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Itineraries{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Itineraries</h3>
+  <a href="{{ url_for('itinerary_create') }}" class="btn btn-primary">New itinerary</a>
+</div>
+
+<table class="table table-striped align-middle">
+  <thead>
+    <tr>
+      <th>Country</th>
+      <th>Activity</th>
+      <th>Travelers</th>
+      <th>Budget</th>
+      <th>Start</th>
+      <th>End</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for it in itineraries %}
+    <tr>
+      <td>{{ it.country }}</td>
+      <td>{{ it.activity_type }}</td>
+      <td>{{ it.number_of_travelers }}</td>
+      <td>{{ it.budget }}</td>
+      <td>{{ it.start_date }}</td>
+      <td>{{ it.end_date }}</td>
+      <td>
+        <a href="{{ url_for('itinerary_detail', itinerary_id=it.id) }}" class="btn btn-sm btn-outline-primary"
+          >Details</a
+        >
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="7" class="text-muted">No itineraries yet.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-7">
+    <h3>Suppliers</h3>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Agency</th>
+          <th>Company ID</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td>{{ s.type }}</td>
+          <td>{{ s.agency.name if s.agency else '' }}</td>
+          <td>{{ s.company_id }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="text-muted">No suppliers yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="col-md-5">
+    <h4 class="mb-3">New supplier</h4>
+    <form method="post">
+      <div class="mb-2">
+        <label class="form-label">Name</label>
+        <input name="name" class="form-control" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Type (e.g. hotel, transport)</label>
+        <input name="type" class="form-control" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Company ID</label>
+        <input name="company_id" class="form-control" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Agency</label>
+        <select name="agency_id" class="form-select">
+          <option value="">(none)</option>
+          {% for a in agencies %}
+          <option value="{{ a.id }}">{{ a.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-success mt-2">Save</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
