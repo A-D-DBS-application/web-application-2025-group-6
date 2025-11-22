@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Mijn boekingen</h1>
+
+{% if bookings %}
+    <ul class="booking-list">
+        {% for b in bookings %}
+            <li>
+                <strong>{{ b.listing.title }}</strong> in {{ b.listing.location }}<br>
+                Van {{ b.start_date }} tot {{ b.end_date }}<br>
+                Status: {{ b.status }}<br>
+                <a href="{{ url_for('main.listing_detail', listing_id=b.listing.listing_id) }}">Bekijk verblijf</a> |
+                <a href="{{ url_for('main.review_booking', booking_id=b.booking_id) }}">Review schrijven</a>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>Je hebt nog geen boekingen.</p>
+{% endif %}
+{% endblock %}

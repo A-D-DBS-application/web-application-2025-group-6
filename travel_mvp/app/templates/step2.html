@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="step-container">
+
+    <div class="progress-label">Step 2 of 2 – Personal Preferences</div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: 100%;"></div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-card-header">
+            <div class="icon-circle">👤</div>
+            <h2>Personal Preferences</h2>
+        </div>
+
+        <form action="/result" method="POST" class="step-form" id="step2-form">
+
+            <label>Number of Adults</label>
+            <div class="counter-box">
+                <button type="button" class="counter-btn" onclick="changeCount('adults', -1)">−</button>
+                <span id="adults">1</span>
+                <input type="hidden" name="adults" id="adults_input" value="1">
+                <button type="button" class="counter-btn" onclick="changeCount('adults', 1)">+</button>
+            </div>
+
+            <label>Number of Children</label>
+            <div class="counter-box">
+                <button type="button" class="counter-btn" onclick="changeCount('children', -1)">−</button>
+                <span id="children">0</span>
+                <input type="hidden" name="children" id="children_input" value="0">
+                <button type="button" class="counter-btn" onclick="changeCount('children', 1)">+</button>
+            </div>
+
+            <div class="interests-section">
+                <h3>Your Interests</h3>
+                <p class="small-note">1 = low importance, 5 = very important</p>
+
+                <div class="interest-row">
+                    <span>Wildlife</span>
+                    <div class="interest-buttons" data-name="wildlife"></div>
+                </div>
+
+                <div class="interest-row">
+                    <span>Culture</span>
+                    <div class="interest-buttons" data-name="culture"></div>
+                </div>
+
+                <div class="interest-row">
+                    <span>Adventure</span>
+                    <div class="interest-buttons" data-name="adventure"></div>
+                </div>
+
+                <div class="interest-row">
+                    <span>Relaxation</span>
+                    <div class="interest-buttons" data-name="relax"></div>
+                </div>
+            </div>
+
+            <label>Accommodation Type</label>
+            <select name="accommodation" required>
+                <option value="" disabled selected>Select accommodation</option>
+                <option value="budget">Budget Lodges ($)</option>
+                <option value="comfortable">Comfort Lodges ($$)</option>
+                <option value="luxury">Luxury Hotels ($$$)</option>
+            </select>
+
+            <div class="buttons">
+                <a href="/step1" class="back-btn">← Previous</a>
+                <button type="button" class="next-btn" onclick="openModal()">Generate Trip →</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- POPUP / MODAL -->
+<div id="saveModal" class="modal-overlay">
+    <div class="modal">
+        <h3>Save your progress</h3>
+        <p>You can log in or sign up to save this trip, or continue without saving.</p>
+        <div class="modal-buttons">
+            <button type="button" class="secondary" onclick="submitWithoutSaving()">Continue without saving</button>
+            <button type="button" onclick="goLogin()">Log in</button>
+            <button type="button" onclick="goSignup()">Sign up</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function changeCount(field, diff) {
+    let span = document.getElementById(field);
+    let input = document.getElementById(field + "_input");
+    let value = parseInt(span.textContent);
+    value = Math.max(0, value + diff);
+    span.textContent = value;
+    input.value = value;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".interest-buttons").forEach(container => {
+        let name = container.dataset.name;
+        for (let i = 1; i <= 5; i++) {
+            let btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "interest-btn";
+            btn.textContent = i;
+
+            btn.onclick = () => {
+                container.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+
+                let existing = container.parentElement.querySelector("input[name='" + name + "']");
+                if (!existing) {
+                    existing = document.createElement("input");
+                    existing.type = "hidden";
+                    existing.name = name;
+                    container.parentElement.appendChild(existing);
+                }
+                existing.value = i;
+            };
+
+            container.appendChild(btn);
+        }
+    });
+});
+
+function openModal() {
+    document.getElementById("saveModal").style.display = "flex";
+}
+
+function submitWithoutSaving() {
+    document.getElementById("saveModal").style.display = "none";
+    document.getElementById("step2-form").submit();
+}
+
+function goLogin() {
+    window.location.href = "/login";
+}
+
+function goSignup() {
+    alert("Signup page not implemented in MVP.");
+}
+</script>
+
+{% endblock %}

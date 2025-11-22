@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Review voor {{ listing.title }}</h1>
+
+<form method="post">
+    <label>Score (1-5):
+        <input type="number" name="rating" min="1" max="5" required>
+    </label>
+    <label>Commentaar:
+        <textarea name="comment" rows="4" cols="40"></textarea>
+    </label>
+    <button type="submit">Verstuur review</button>
+</form>
+{% endblock %}

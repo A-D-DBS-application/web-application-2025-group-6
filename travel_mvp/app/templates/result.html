@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="trip-header">
+    <div class="trip-header-overlay">
+        <h1>Your Trip Plan</h1>
+        <p>Based on your preferences, here is a suggested East African journey.</p>
+    </div>
+</div>
+
+<div class="step-container">
+
+    <div class="trip-summary">
+        <div class="summary-box">
+            <h3>Dates</h3>
+            <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
+        </div>
+
+        <div class="summary-box">
+            <h3>Travellers</h3>
+            <p>Adults: {{ adults or "1" }} | Children: {{ children or "0" }}</p>
+        </div>
+
+        <div class="summary-box">
+            <h3>Budget & Stay</h3>
+            <p>Budget: {{ budget or "N/A" }}<br>Accommodation: {{ accommodation or "N/A" }}</p>
+        </div>
+    </div>
+
+    <h2 class="section-title">Suggested Itinerary</h2>
+
+    <div class="itinerary">
+        <div class="day">
+            <h3>Day 1 – Arrival & City Tour</h3>
+            <p>Arrive, transfer to your lodge and enjoy a light city tour.</p>
+        </div>
+
+        <div class="day">
+            <h3>Day 2 – Wildlife Experience</h3>
+            <p>Guided safari or park visit, depending on your chosen country.</p>
+        </div>
+
+        <div class="day">
+            <h3>Day 3 – Culture & Local Life</h3>
+            <p>Visit local markets, cultural centers and meet local communities.</p>
+        </div>
+
+        <div class="day">
+            <h3>Day 4 – Relaxation Day</h3>
+            <p>A free day to relax at the lodge or optional activities.</p>
+        </div>
+
+        <div class="day">
+            <h3>Day 5–7 – Extended Adventure</h3>
+            <p>More safaris, hiking, lake visits or beach, depending on preferences.</p>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="listing-detail">
+    <h1>{{ listing.title }}</h1>
+    <p class="location">{{ listing.location }}</p>
+    <p class="price">€{{ "%.2f"|format(listing.price_per_night) }} / nacht</p>
+
+    <p>{{ listing.description }}</p>
+
+    {% if user %}
+        <section class="booking-section">
+            <h2>Boek dit verblijf</h2>
+            <form method="post" action="{{ url_for('main.book_listing', listing_id=listing.listing_id) }}">
+                <label>Startdatum:
+                    <input type="date" name="start_date" required>
+                </label>
+                <label>Einddatum:
+                    <input type="date" name="end_date" required>
+                </label>
+                <button type="submit">Boeken</button>
+            </form>
+        </section>
+    {% else %}
+        <p>Log in om te boeken.</p>
+    {% endif %}
+
+    <section class="reviews">
+        <h2>Reviews</h2>
+        {% if listing.reviews %}
+            {% for review in listing.reviews %}
+                <div class="review">
+                    <strong>Score: {{ review.rating }}/5</strong>
+                    <p>{{ review.comment }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>Nog geen reviews.</p>
+        {% endif %}
+    </section>
+</article>
+
+<section class="recommended">
+    <h2>Aanbevolen verblijven in de buurt</h2>
+    <div class="listing-grid">
+        {% for l in recommended %}
+            <div class="listing-card">
+                <h3><a href="{{ url_for('main.listing_detail', listing_id=l.listing_id) }}">{{ l.title }}</a></h3>
+                <p class="location">{{ l.location }}</p>
+                <p class="price">€{{ "%.2f"|format(l.price_per_night) }} / nacht</p>
+            </div>
+        {% else %}
+            <p>Geen andere verblijven gevonden.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

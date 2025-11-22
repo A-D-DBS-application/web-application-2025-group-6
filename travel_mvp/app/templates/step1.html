@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="step-container">
+
+    <div class="progress-label">Step 1 of 2 – Travel Details & Budget</div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: 50%;"></div>
+    </div>
+
+    <div class="step-card">
+        <div class="step-card-header">
+            <div class="icon-circle">✈️</div>
+            <h2>Travel Details & Budget</h2>
+        </div>
+
+        <form action="/step2" method="POST" class="step-form">
+            <label>Start Date *</label>
+            <input type="date" name="start_date" required>
+
+            <label>End Date *</label>
+            <input type="date" name="end_date" required>
+
+            <label>Budget Range *</label>
+            <select name="budget" required>
+                <option value="" disabled selected>Select budget range</option>
+                <option value="budget">Budget ($)</option>
+                <option value="moderate">Moderate ($$)</option>
+                <option value="comfort">Comfort ($$$)</option>
+                <option value="luxury">Luxury ($$$$)</option>
+            </select>
+
+            <div class="buttons">
+                <a href="/" class="back-btn">← Previous</a>
+                <button class="next-btn">Next →</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+{% endblock %}

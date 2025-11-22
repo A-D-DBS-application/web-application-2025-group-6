@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="hero">
+    <h1>Discover Your Perfect Journey</h1>
+</div>
+
+<h2 class="section-title">Choose Your Destination</h2>
+
+<div class="destinations">
+    <div class="card">
+        <img src="/static/img/uganda.jpg" alt="Uganda">
+        <h3 class="card-title">Uganda</h3>
+        <p class="card-text">
+            The Pearl of Africa. A beautiful mix of lakes, mountains and wildlife.
+        </p>
+        <a class="card-btn" href="/step1">Discover Uganda</a>
+    </div>
+
+    <div class="card">
+        <img src="/static/img/rwanda.jpg" alt="Rwanda">
+        <h3 class="card-title">Rwanda</h3>
+        <p class="card-text">
+            Land of a Thousand Hills with stunning green landscapes and culture.
+        </p>
+        <a class="card-btn" href="/step1">Discover Rwanda</a>
+    </div>
+
+    <div class="card">
+        <img src="/static/img/tanzania.jpg" alt="Tanzania">
+        <h3 class="card-title">Tanzania</h3>
+        <p class="card-text">
+            Home of Kilimanjaro, Serengeti and Zanzibar — perfect for adventure.
+        </p>
+        <a class="card-btn" href="/step1">Discover Tanzania</a>
+    </div>
+</div>
+
+{% endblock %}
