@@ -10,12 +10,19 @@ def index():
 def step1():
     return render_template("step1.html")
 
-@main_bp.route("/step2", methods=["POST"])
+@main_bp.route("/step2", methods=["GET", "POST"])
 def step2():
-    session["start"] = request.form.get("start_date")
-    session["end"] = request.form.get("end_date")
-    session["budget"] = request.form.get("budget")
-    return render_template("step2.html")
+    budget = request.args.get("budget") or request.form.get("budget")
+    country = request.args.get("country")
+    duration = request.args.get("duration")
+
+    return render_template(
+        "step2.html",
+        budget=budget,
+        country=country,
+        duration=duration
+    )
+
 
 @main_bp.route("/result", methods=["POST"])
 def result():

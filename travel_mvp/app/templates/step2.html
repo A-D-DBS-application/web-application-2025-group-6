@@ -16,7 +16,10 @@
 
         <form action="/result" method="POST" class="step-form" id="step2-form">
 
-            <label>Number of Adults</label>
+            <!-- budget uit step1, zodat we het kunnen doorgeven naar result -->
+            <input type="hidden" name="budget" value="{{ budget }}">
+
+            <label>Adults (13+ years)</label>
             <div class="counter-box">
                 <button type="button" class="counter-btn" onclick="changeCount('adults', -1)">−</button>
                 <span id="adults">1</span>
@@ -24,7 +27,7 @@
                 <button type="button" class="counter-btn" onclick="changeCount('adults', 1)">+</button>
             </div>
 
-            <label>Number of Children</label>
+            <label>Children (0–12 years)</label>
             <div class="counter-box">
                 <button type="button" class="counter-btn" onclick="changeCount('children', -1)">−</button>
                 <span id="children">0</span>
@@ -37,53 +40,80 @@
                 <p class="small-note">1 = low importance, 5 = very important</p>
 
                 <div class="interest-row">
-                    <span>Wildlife</span>
-                    <div class="interest-buttons" data-name="wildlife"></div>
-                </div>
-
-                <div class="interest-row">
                     <span>Culture</span>
                     <div class="interest-buttons" data-name="culture"></div>
                 </div>
 
                 <div class="interest-row">
-                    <span>Adventure</span>
-                    <div class="interest-buttons" data-name="adventure"></div>
+                    <span>Food</span>
+                    <div class="interest-buttons" data-name="food"></div>
                 </div>
 
                 <div class="interest-row">
-                    <span>Relaxation</span>
-                    <div class="interest-buttons" data-name="relax"></div>
+                    <span>Photography</span>
+                    <div class="interest-buttons" data-name="photography"></div>
+                </div>
+
+                <div class="interest-row">
+                    <span>Wildlife</span>
+                    <div class="interest-buttons" data-name="wildlife"></div>
+                </div>
+
+                <div class="interest-row">
+                    <span>History</span>
+                    <div class="interest-buttons" data-name="history"></div>
+                </div>
+
+                <div class="interest-row">
+                    <span>Beach</span>
+                    <div class="interest-buttons" data-name="beach"></div>
                 </div>
             </div>
 
+            <!-- ACCOMMODATION met logische budget-voorwaarden -->
             <label>Accommodation Type</label>
             <select name="accommodation" required>
-                <option value="" disabled selected>Select accommodation</option>
-                <option value="budget">Budget Lodges ($)</option>
-                <option value="comfortable">Comfort Lodges ($$)</option>
-                <option value="luxury">Luxury Hotels ($$$)</option>
+
+                <!-- Altijd beschikbaar -->
+                <option value="hostel">Hostel</option>
+                <option value="airbnb">Apartment / Airbnb</option>
+                <option value="hotel3">Hotel (3 Star)</option>
+
+                <!-- Hotel 4★: niet beschikbaar bij 'budget', wel bij moderate/comfort/luxury -->
+                <option value="hotel4"
+                    {% if budget == 'budget' %} disabled class="disabled-option" {% endif %}>
+                    Hotel (4 Star)
+                    {% if budget == 'budget' %}(Not available for your budget){% endif %}
+                </option>
+
+                <!-- Hotel 5★: pas beschikbaar vanaf 'comfort' -->
+                <option value="hotel5"
+                    {% if budget == 'budget' or budget == 'moderate' %} disabled class="disabled-option" {% endif %}>
+                    Hotel (5 Star)
+                    {% if budget == 'budget' or budget == 'moderate' %}(Not available for your budget){% endif %}
+                </option>
+
+                <!-- Resort & Boutique: alleen bij 'luxury' -->
+                <option value="resort"
+                    {% if budget != 'luxury' %} disabled class="disabled-option" {% endif %}>
+                    Resort
+                    {% if budget != 'luxury' %}(Not available for your budget){% endif %}
+                </option>
+
+                <option value="boutique"
+                    {% if budget != 'luxury' %} disabled class="disabled-option" {% endif %}>
+                    Boutique Hotel
+                    {% if budget != 'luxury' %}(Not available for your budget){% endif %}
+                </option>
+
             </select>
 
             <div class="buttons">
                 <a href="/step1" class="back-btn">← Previous</a>
-                <button type="button" class="next-btn" onclick="openModal()">Generate Trip →</button>
+                <button type="submit" class="next-btn">Generate Trip →</button>
             </div>
 
         </form>
-    </div>
-</div>
-
-<!-- POPUP / MODAL -->
-<div id="saveModal" class="modal-overlay">
-    <div class="modal">
-        <h3>Save your progress</h3>
-        <p>You can log in or sign up to save this trip, or continue without saving.</p>
-        <div class="modal-buttons">
-            <button type="button" class="secondary" onclick="submitWithoutSaving()">Continue without saving</button>
-            <button type="button" onclick="goLogin()">Log in</button>
-            <button type="button" onclick="goSignup()">Sign up</button>
-        </div>
     </div>
 </div>
 
@@ -124,23 +154,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
-
-function openModal() {
-    document.getElementById("saveModal").style.display = "flex";
-}
-
-function submitWithoutSaving() {
-    document.getElementById("saveModal").style.display = "none";
-    document.getElementById("step2-form").submit();
-}
-
-function goLogin() {
-    window.location.href = "/login";
-}
-
-function goSignup() {
-    alert("Signup page not implemented in MVP.");
-}
 </script>
 
 {% endblock %}

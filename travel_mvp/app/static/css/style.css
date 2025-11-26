@@ -340,3 +340,12 @@ a {
     margin-bottom: 10px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.05);
 }
+.disabled-option {
+    color: #bfbfbf !important;
+    background-color: #f2f2f2 !important;
+}
+.disabled-option:hover {
+    background-color: #f2f2f2 !important;
+    cursor: not-allowed;
+}
+

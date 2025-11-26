@@ -14,29 +14,54 @@
             <h2>Travel Details & Budget</h2>
         </div>
 
-        <form action="/step2" method="POST" class="step-form">
-            <label>Start Date *</label>
+        <form action="/step2" method="GET" class="step-form">
+
+            <!-- START DATE -->
+            <label>Start Date <span class="red">*</span></label>
             <input type="date" name="start_date" required>
 
-            <label>End Date *</label>
+            <!-- END DATE -->
+            <label>End Date <span class="red">*</span></label>
             <input type="date" name="end_date" required>
 
-            <label>Budget Range *</label>
-            <select name="budget" required>
+            <!-- BUDGET -->
+            <label>Budget Range <span class="red">*</span></label>
+            <select name="budget" id="budgetSelect" required>
                 <option value="" disabled selected>Select budget range</option>
-                <option value="budget">Budget ($)</option>
-                <option value="moderate">Moderate ($$)</option>
-                <option value="comfort">Comfort ($$$)</option>
-                <option value="luxury">Luxury ($$$$)</option>
+                <option value="budget">$ Budget</option>
+                <option value="moderate">$$ Moderate</option>
+                <option value="comfort">$$$ Comfort</option>
+                <option value="luxury">$$$$ Luxury</option>
             </select>
 
             <div class="buttons">
-                <a href="/" class="back-btn">← Previous</a>
-                <button class="next-btn">Next →</button>
+                <button type="submit" class="next-btn">Next →</button>
             </div>
         </form>
     </div>
-
 </div>
+
+<script>
+/* 
+    🟦 LOGICA DIE JIJ WILDE:
+    Op basis van Budget → bepalen welke accommodaties beschikbaar worden in Step 2.
+    We bewaren dit in localStorage zodat Step 2 het automatisch kan laden.
+*/
+
+document.getElementById("budgetSelect").addEventListener("change", function () {
+    let budget = this.value;
+
+    // Accommodatie-opties afhankelijk van budget
+    let options = {
+        budget: ["hostel", "apartment", "hotel3"],
+        moderate: ["apartment", "hotel3", "hotel4"],
+        comfort: ["hotel3", "hotel4", "hotel5", "resort"],
+        luxury: ["hotel4", "hotel5", "resort", "boutique"]
+    };
+
+    // opslaan voor Step 2
+    localStorage.setItem("allowedAccommodations", JSON.stringify(options[budget]));
+});
+</script>
 
 {% endblock %}
