@@ -16,9 +16,10 @@
 
         <form action="/result" method="POST" class="step-form" id="step2-form">
 
-            <!-- budget uit step1, zodat we het kunnen doorgeven naar result -->
+            <!-- BUDGET MEEGEVEN -->
             <input type="hidden" name="budget" value="{{ budget }}">
 
+            <!-- ADULTS -->
             <label>Adults (13+ years)</label>
             <div class="counter-box">
                 <button type="button" class="counter-btn" onclick="changeCount('adults', -1)">−</button>
@@ -27,6 +28,7 @@
                 <button type="button" class="counter-btn" onclick="changeCount('adults', 1)">+</button>
             </div>
 
+            <!-- CHILDREN -->
             <label>Children (0–12 years)</label>
             <div class="counter-box">
                 <button type="button" class="counter-btn" onclick="changeCount('children', -1)">−</button>
@@ -35,6 +37,7 @@
                 <button type="button" class="counter-btn" onclick="changeCount('children', 1)">+</button>
             </div>
 
+            <!-- INTERESTS -->
             <div class="interests-section">
                 <h3>Your Interests</h3>
                 <p class="small-note">1 = low importance, 5 = very important</p>
@@ -47,11 +50,6 @@
                 <div class="interest-row">
                     <span>Food</span>
                     <div class="interest-buttons" data-name="food"></div>
-                </div>
-
-                <div class="interest-row">
-                    <span>Photography</span>
-                    <div class="interest-buttons" data-name="photography"></div>
                 </div>
 
                 <div class="interest-row">
@@ -70,40 +68,36 @@
                 </div>
             </div>
 
-            <!-- ACCOMMODATION met logische budget-voorwaarden -->
+            <!-- ACCOMMODATION -->
             <label>Accommodation Type</label>
             <select name="accommodation" required>
 
-                <!-- Altijd beschikbaar -->
                 <option value="hostel">Hostel</option>
                 <option value="airbnb">Apartment / Airbnb</option>
                 <option value="hotel3">Hotel (3 Star)</option>
 
-                <!-- Hotel 4★: niet beschikbaar bij 'budget', wel bij moderate/comfort/luxury -->
+                <!-- HOTEL 4 -->
                 <option value="hotel4"
-                    {% if budget == 'budget' %} disabled class="disabled-option" {% endif %}>
-                    Hotel (4 Star)
-                    {% if budget == 'budget' %}(Not available for your budget){% endif %}
+                    {% if budget == 'low' %} disabled class="disabled-option" {% endif %}>
+                    Hotel (4 Star) {% if budget == 'low' %}(Not available for your budget){% endif %}
                 </option>
 
-                <!-- Hotel 5★: pas beschikbaar vanaf 'comfort' -->
+                <!-- HOTEL 5 -->
                 <option value="hotel5"
-                    {% if budget == 'budget' or budget == 'moderate' %} disabled class="disabled-option" {% endif %}>
-                    Hotel (5 Star)
-                    {% if budget == 'budget' or budget == 'moderate' %}(Not available for your budget){% endif %}
+                    {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
+                    Hotel (5 Star) {% if budget != 'high' %}(Not available for your budget){% endif %}
                 </option>
 
-                <!-- Resort & Boutique: alleen bij 'luxury' -->
+                <!-- RESORT -->
                 <option value="resort"
-                    {% if budget != 'luxury' %} disabled class="disabled-option" {% endif %}>
-                    Resort
-                    {% if budget != 'luxury' %}(Not available for your budget){% endif %}
+                    {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
+                    Resort {% if budget != 'high' %}(Not available for your budget){% endif %}
                 </option>
 
+                <!-- BOUTIQUE -->
                 <option value="boutique"
-                    {% if budget != 'luxury' %} disabled class="disabled-option" {% endif %}>
-                    Boutique Hotel
-                    {% if budget != 'luxury' %}(Not available for your budget){% endif %}
+                    {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
+                    Boutique Hotel {% if budget != 'high' %}(Not available for your budget){% endif %}
                 </option>
 
             </select>
@@ -117,6 +111,7 @@
     </div>
 </div>
 
+<!-- ⭐ STAR RATING SCRIPT -->
 <script>
 function changeCount(field, diff) {
     let span = document.getElementById(field);
@@ -128,8 +123,11 @@ function changeCount(field, diff) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+
     document.querySelectorAll(".interest-buttons").forEach(container => {
         let name = container.dataset.name;
+
+        // Maak 5 knoppen
         for (let i = 1; i <= 5; i++) {
             let btn = document.createElement("button");
             btn.type = "button";
@@ -137,9 +135,17 @@ document.addEventListener("DOMContentLoaded", function () {
             btn.textContent = i;
 
             btn.onclick = () => {
+                // Alles resetten
                 container.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
 
+                // Alles highlighten t.e.m. gekozen waarde
+                container.querySelectorAll("button").forEach(b => {
+                    if (parseInt(b.textContent) <= i) {
+                        b.classList.add("active");
+                    }
+                });
+
+                // Hidden input opslaan
                 let existing = container.parentElement.querySelector("input[name='" + name + "']");
                 if (!existing) {
                     existing = document.createElement("input");
