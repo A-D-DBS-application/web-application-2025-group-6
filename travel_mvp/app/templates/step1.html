@@ -3,64 +3,61 @@
 
 <div class="step-container">
 
-    <div class="progress-label">Step 1 of 2 – Travel Details & Budget</div>
-    <div class="progress-bar">
-        <div class="progress-fill" style="width: 50%;"></div>
-    </div>
+    <div class="progress-label">Step 1 of 2 – Travel Details & Budget</div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: 50%;"></div>
+    </div>
 
-    <div class="step-card">
-        <div class="step-card-header">
-            <div class="icon-circle">✈️</div>
-            <h2>Travel Details & Budget</h2>
-        </div>
+    <div class="step-card">
+        <div class="step-card-header">
+            <div class="icon-circle">✈️</div>
+            <h2>Travel Details & Budget</h2>
+        </div>
 
-        <form action="/step2" method="GET" class="step-form">
+                <form action="{{ url_for('main.step1_route') }}" method="POST" class="step-form"> 
 
-            <!-- START DATE -->
-            <label>Start Date <span class="red">*</span></label>
-            <input type="date" name="start_date" required>
+                        <label>Start Date <span class="red">*</span></label>
+            <input type="text" name="start_date" placeholder="dd/mm/yyyy" required pattern="\d{2}/\d{2}/\d{4}" title="Format: dd/mm/yyyy">
+                                     <label>End Date <span class="red">*</span></label>
+            <input type="text" name="end_date" placeholder="dd/mm/yyyy" required pattern="\d{2}/\d{2}/\d{4}" title="Format: dd/mm/yyyy">
 
-            <!-- END DATE -->
-            <label>End Date <span class="red">*</span></label>
-            <input type="date" name="end_date" required>
+                        <label>Budget Range <span class="red">*</span></label>
+            <select name="budget_range" id="budgetSelect" required>
+                <option value="" disabled selected>Select budget range</option>
+                                <option value="low">$ Budget</option> 
+                <option value="medium">$$ Moderate</option>
+                <option value="high">$$$ Comfort</option>
+                <option value="luxury">$$$$ Luxury</option> 
+            </select>
 
-            <!-- BUDGET -->
-            <label>Budget Range <span class="red">*</span></label>
-            <select name="budget" id="budgetSelect" required>
-                <option value="" disabled selected>Select budget range</option>
-                <option value="budget">$ Budget</option>
-                <option value="moderate">$$ Moderate</option>
-                <option value="comfort">$$$ Comfort</option>
-                <option value="luxury">$$$$ Luxury</option>
-            </select>
+                        <label>Choose Destination <span class="red">*</span></label>
+            <select name="country" required>
+                <option value="" disabled selected>Select a country</option>
+                <option value="Uganda">Uganda</option> 
+                <option value="Rwanda">Rwanda</option> 
+                <option value="Tanzania">Tanzania</option>
+            </select>
+            
 
-            <div class="buttons">
-                <button type="submit" class="next-btn">Next →</button>
-            </div>
-        </form>
-    </div>
+            <div class="buttons">
+                <button type="submit" class="next-btn">Next →</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
-/* 
-    🟦 LOGICA DIE JIJ WILDE:
-    Op basis van Budget → bepalen welke accommodaties beschikbaar worden in Step 2.
-    We bewaren dit in localStorage zodat Step 2 het automatisch kan laden.
+/*
+    De logica om accommodatie te beperken wordt nu overgenomen door de Flask Session,
+    wat veiliger en robuuster is. De localStorage logica is niet langer nodig.
+
+    We houden enkel de budgetselectie logica, maar we passen de waarden aan:
 */
 
 document.getElementById("budgetSelect").addEventListener("change", function () {
-    let budget = this.value;
-
-    // Accommodatie-opties afhankelijk van budget
-    let options = {
-        budget: ["hostel", "apartment", "hotel3"],
-        moderate: ["apartment", "hotel3", "hotel4"],
-        comfort: ["hotel3", "hotel4", "hotel5", "resort"],
-        luxury: ["hotel4", "hotel5", "resort", "boutique"]
-    };
-
-    // opslaan voor Step 2
-    localStorage.setItem("allowedAccommodations", JSON.stringify(options[budget]));
+    // We hoeven nu niets meer op te slaan in localStorage.
+    // De POST naar /step1 zorgt ervoor dat de 'budget_range' in de Flask Session wordt opgeslagen.
+    // De conditional logic in step2.html zal dan de juiste waarden ontvangen via de route.
 });
 </script>
 

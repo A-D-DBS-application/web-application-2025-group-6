@@ -1,12 +1,86 @@
 from datetime import datetime
 from . import db
+from sqlalchemy.dialects.postgresql import ARRAY # Nodig voor de array-kolom in Supabase (interest_categ)
+
+# =========================================================================
+# 1. TRAVEL PLANNER MVP CORE MODELLEN (NIEUW TOEGEVOEGD)
+# Deze zijn essentieel voor jullie Step 1/2/Resultaat logica en Algoritme
+# =========================================================================
+
+class Traveler(db.Model):
+    # Komt overeen met de data van step1.html en step2.html (de gebruikersinvoer)
+    __tablename__ = 'traveler' # Zorg dat de naam overeenkomt met je Supabase tabel
+    
+    traveler_id = db.Column(db.Integer, primary_key=True)
+    
+    # Data van Step 1
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    budget_range = db.Column(db.String(50)) # Bijv. 'low', 'medium', 'high'
+    accommodation_type = db.Column(db.String(50)) # Bijv. 'hostel', 'hotel'
+    country = db.Column(db.String(50)) # Bijv. 'Uganda', 'Rwanda'
+    
+    # Data van Step 2
+    adults = db.Column(db.Integer, default=1)
+    children = db.Column(db.Integer, default=0)
+    
+    # Interesses (We slaan de ruwe voorkeuren op, bijv. 'Culture': 5, 'Wildlife': 3)
+    interest_culture = db.Column(db.Integer)
+    interest_food = db.Column(db.Integer)
+    interest_wildlife = db.Column(db.Integer)
+    interest_history = db.Column(db.Integer)
+    interest_beach = db.Column(db.Integer)
+
+    # Relatie met het gegenereerde reisschema
+    itineraries = db.relationship('Itinerary', backref='traveler', lazy=True)
+
+
+class ActivityType(db.Model):
+    # Komt overeen met je 'public.activity_type' tabel in Supabase
+    __tablename__ = 'activity_type'
+
+    activity_type_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    duration_days = db.Column(db.Integer)
+    price_estimation = db.Column(db.Numeric(10, 2)) # Numeric voor geldwaarden
+    country = db.Column(db.String(50))
+    
+    # Dit is de cruciale kolom voor je algoritme: [ 'Wildlife', 'Culture' ]
+    # We gebruiken ARRAY(db.String) om de PostgreSQL array functionaliteit te ondersteunen.
+    interest_categ = db.Column(ARRAY(db.String)) 
+    
+    itinerary_items = db.relationship('Itinerary', backref='activity_type', lazy=True)
+
+
+class Itinerary(db.Model):
+    # De tabel die de gegenereerde reisroute opslaat (wat de gebruiker ziet op de resultaatpagina)
+    __tablename__ = 'itinerary'
+    
+    itinerary_id = db.Column(db.Integer, primary_key=True)
+    traveler_id = db.Column(db.Integer, db.ForeignKey('traveler.traveler_id'), nullable=False)
+    
+    day = db.Column(db.Integer, nullable=False)
+    day_activity_id = db.Column(db.Integer, db.ForeignKey('activity_type.activity_type_id'), nullable=False)
+    
+    # De titel en beschrijving die in de resultatenpagina worden getoond
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+
+    activity_details = db.relationship("ActivityType", back_populates="itinerary_items", overlaps="activity_type", remote_side=[ActivityType.activity_type_id])
+
+
+# =========================================================================
+# 2. BESTAANDE MARKTPLAATS MODELLEN (BEHOUDEN)
+# Deze zijn nuttig voor de volledige casus, maar niet direct voor de MVP planning
+# =========================================================================
 
 class User(db.Model):
     __tablename__ = "users"
 
     user_id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
-    role = db.Column(db.String(20), default="traveller")  # traveller, host, admin
+    role = db.Column(db.String(20), default="traveller") 	# traveller, host, admin
     contact_email = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -88,7 +162,7 @@ class Booking(db.Model):
     traveller_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
-    status = db.Column(db.String(20), default="pending")  # pending, confirmed, cancelled
+    status = db.Column(db.String(20), default="pending") 	# pending, confirmed, cancelled
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     listing = db.relationship("Listing", back_populates="bookings")
@@ -102,7 +176,7 @@ class Invoice(db.Model):
     booking_id = db.Column(db.Integer, db.ForeignKey("bookings.booking_id"), nullable=False)
     amount = db.Column(db.Float)
     payment_date = db.Column(db.DateTime)
-    payment_status = db.Column(db.String(20), default="unpaid")  # unpaid, paid, refunded
+    payment_status = db.Column(db.String(20), default="unpaid") 	# unpaid, paid, refunded
 
     booking = db.relationship("Booking", back_populates="invoice")
 
@@ -112,7 +186,7 @@ class Review(db.Model):
     review_id = db.Column(db.Integer, primary_key=True)
     listing_id = db.Column(db.Integer, db.ForeignKey("listings.listing_id"), nullable=False)
     traveller_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    rating = db.Column(db.Integer)  # 1–5
+    rating = db.Column(db.Integer) 	# 1–5
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
