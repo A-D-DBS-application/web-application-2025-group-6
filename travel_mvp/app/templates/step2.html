@@ -3,152 +3,158 @@
 
 <div class="step-container">
 
-    <div class="progress-label">Step 2 of 2 – Personal Preferences</div>
-    <div class="progress-bar">
-        <div class="progress-fill" style="width: 100%;"></div>
-    </div>
+    <div class="progress-label">Step 2 of 2 – Personal Preferences</div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: 100%;"></div>
+    </div>
 
-    <div class="step-card">
-        <div class="step-card-header">
-            <div class="icon-circle">👤</div>
-            <h2>Personal Preferences</h2>
-        </div>
+    <div class="step-card">
+        <div class="step-card-header">
+            <div class="icon-circle">👤</div>
+            <h2>Personal Preferences</h2>
+        </div>
 
-                        <form action="/step2" method="POST" class="step-form" id="step2-form">
+        <!-- BELANGRIJK: actie moet /step2 blijven -->
+        <form action="/step2" method="POST" class="step-form" id="step2-form">
 
-                                                <input type="hidden" name="budget" value="{{ budget }}"> 
+            <!-- BUDGET MEEGEVEN (naam MOET budget blijven) -->
+            <input type="hidden" name="budget" value="{{ budget }}">
 
-                        <label>Adults (13+ years)</label>
-            <div class="counter-box">
-                <button type="button" class="counter-btn" onclick="changeCount('adults', -1)">−</button>
-                <span id="adults">1</span>
-                <input type="hidden" name="adults" id="adults_input" value="1">
-                <button type="button" class="counter-btn" onclick="changeCount('adults', 1)">+</button>
-            </div>
+            <!-- ADULTS -->
+            <div class="form-group">
+                <label>Adults (13+ years)</label>
+                <div class="counter-box">
+                    <button type="button" class="counter-btn" onclick="changeCount('adults', -1)">−</button>
+                    <span id="adults">1</span>
+                    <input type="hidden" name="adults" id="adults_input" value="1">
+                    <button type="button" class="counter-btn" onclick="changeCount('adults', 1)">+</button>
+                </div>
+            </div>
 
-                        <label>Children (0–12 years)</label>
-            <div class="counter-box">
-                <button type="button" class="counter-btn" onclick="changeCount('children', -1)">−</button>
-                <span id="children">0</span>
-                <input type="hidden" name="children" id="children_input" value="0">
-                <button type="button" class="counter-btn" onclick="changeCount('children', 1)">+</button>
-            </div>
+            <!-- CHILDREN -->
+            <div class="form-group">
+                <label>Children (0–12 years)</label>
+                <div class="counter-box">
+                    <button type="button" class="counter-btn" onclick="changeCount('children', -1)">−</button>
+                    <span id="children">0</span>
+                    <input type="hidden" name="children" id="children_input" value="0">
+                    <button type="button" class="counter-btn" onclick="changeCount('children', 1)">+</button>
+                </div>
+            </div>
 
-                        <div class="interests-section">
-                <h3>Your Interests</h3>
-                <p class="small-note">1 = low importance, 5 = very important</p>
+            <!-- INTERESTS -->
+            <div class="interests-section">
+                <h3>Your Interests</h3>
+                <p class="small-note">1 = low importance, 5 = very important</p>
 
-                <div class="interest-row">
-                    <span>Culture</span>
-                    <div class="interest-buttons" data-name="culture"></div>
-                </div>
+                <div class="interest-row">
+                    <span>Culture</span>
+                    <div class="interest-buttons" data-name="culture"></div>
+                </div>
 
-                <div class="interest-row">
-                    <span>Food</span>
-                    <div class="interest-buttons" data-name="food"></div>
-                </div>
+                <div class="interest-row">
+                    <span>Food</span>
+                    <div class="interest-buttons" data-name="food"></div>
+                </div>
 
-                <div class="interest-row">
-                    <span>Wildlife</span>
-                    <div class="interest-buttons" data-name="wildlife"></div>
-                </div>
+                <div class="interest-row">
+                    <span>Wildlife</span>
+                    <div class="interest-buttons" data-name="wildlife"></div>
+                </div>
 
-                <div class="interest-row">
-                    <span>History</span>
-                    <div class="interest-buttons" data-name="history"></div>
-                </div>
+                <div class="interest-row">
+                    <span>History</span>
+                    <div class="interest-buttons" data-name="history"></div>
+                </div>
 
-                <div class="interest-row">
-                    <span>Beach</span>
-                    <div class="interest-buttons" data-name="beach"></div>
-                </div>
-            </div>
+                <div class="interest-row">
+                    <span>Beach</span>
+                    <div class="interest-buttons" data-name="beach"></div>
+                </div>
+            </div>
 
-                        <label>Accommodation Type</label>
-                        <select name="accommodation_type" required> 
+            <!-- ACCOMMODATION -->
+            <div class="form-group">
+                <label>Accommodation Type</label>
+                <select name="accommodation_type" required>
+                    
+                    <option value="hostel">Hostel</option>
+                    <option value="airbnb">Apartment / Airbnb</option>
+                    <option value="hotel3">Hotel (3 Star)</option>
 
-                <option value="hostel">Hostel</option>
-                <option value="airbnb">Apartment / Airbnb</option>
-                <option value="hotel3">Hotel (3 Star)</option>
+                    <option value="hotel4"
+                        {% if budget == 'low' %} disabled class="disabled-option" {% endif %}>
+                        Hotel (4 Star) {% if budget == 'low' %}(Not available for your budget){% endif %}
+                    </option>
 
-                                <option value="hotel4"
-                    {% if budget == 'low' %} disabled class="disabled-option" {% endif %}>
-                    Hotel (4 Star) {% if budget == 'low' %}(Not available for your budget){% endif %}
-                </option>
+                    <option value="hotel5"
+                        {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
+                        Hotel (5 Star) {% if budget != 'high' %}(Not available for your budget){% endif %}
+                    </option>
 
-                                <option value="hotel5"
-                    {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
-                    Hotel (5 Star) {% if budget != 'high' %}(Not available for your budget){% endif %}
-                </option>
+                    <option value="resort"
+                        {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
+                        Resort {% if budget != 'high' %}(Not available for your budget){% endif %}
+                    </option>
 
-                                <option value="resort"
-                    {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
-                    Resort {% if budget != 'high' %}(Not available for your budget){% endif %}
-                </option>
+                    <option value="boutique"
+                        {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
+                        Boutique Hotel {% if budget != 'high' %}(Not available for your budget){% endif %}
+                    </option>
+                </select>
+            </div>
 
-                                <option value="boutique"
-                    {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
-                    Boutique Hotel {% if budget != 'high' %}(Not available for your budget){% endif %}
-                </option>
+            <div class="buttons">
+                <a href="/step1" class="back-btn">← Previous</a>
+                <button type="submit" class="next-btn">Generate Trip →</button>
+            </div>
 
-            </select>
-
-            <div class="buttons">
-                <a href="/step1" class="back-btn">← Previous</a>
-                <button type="submit" class="next-btn">Generate Trip →</button>
-            </div>
-
-        </form>
-    </div>
+        </form>
+    </div>
 </div>
 
 <script>
 function changeCount(field, diff) {
-    let span = document.getElementById(field);
-    let input = document.getElementById(field + "_input");
-    let value = parseInt(span.textContent);
-    value = Math.max(0, value + diff);
-    span.textContent = value;
-    input.value = value;
+    let span = document.getElementById(field);
+    let input = document.getElementById(field + "_input");
+    let value = parseInt(span.textContent);
+    value = Math.max(0, value + diff);
+    span.textContent = value;
+    input.value = value;
 }
 
 document.addEventListener("DOMContentLoaded", function () {
 
-    document.querySelectorAll(".interest-buttons").forEach(container => {
-        let name = container.dataset.name;
+    document.querySelectorAll(".interest-buttons").forEach(container => {
+        let name = container.dataset.name;
 
-        // Maak 5 knoppen
-        for (let i = 1; i <= 5; i++) {
-            let btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "interest-btn";
-            btn.textContent = i;
+        for (let i = 1; i <= 5; i++) {
+            let btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "interest-btn";
+            btn.textContent = i;
 
-            btn.onclick = () => {
-                // Alles resetten
-                container.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+            btn.onclick = () => {
+                container.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+                container.querySelectorAll("button").forEach(b => {
+                    if (parseInt(b.textContent) <= i) {
+                        b.classList.add("active");
+                    }
+                });
 
-                // Alles highlighten t.e.m. gekozen waarde
-                container.querySelectorAll("button").forEach(b => {
-                    if (parseInt(b.textContent) <= i) {
-                        b.classList.add("active");
-                    }
-                });
+                let existing = container.parentElement.querySelector("input[name='" + name + "']");
+                if (!existing) {
+                    existing = document.createElement("input");
+                    existing.type = "hidden";
+                    existing.name = name;
+                    container.parentElement.appendChild(existing);
+                }
+                existing.value = i;
+            };
 
-                // Hidden input opslaan
-                let existing = container.parentElement.querySelector("input[name='" + name + "']");
-                if (!existing) {
-                    existing = document.createElement("input");
-                    existing.type = "hidden";
-                    existing.name = name;
-                    container.parentElement.appendChild(existing);
-                }
-                existing.value = i;
-            };
-
-            container.appendChild(btn);
-        }
-    });
+            container.appendChild(btn);
+        }
+    });
 });
 </script>
 

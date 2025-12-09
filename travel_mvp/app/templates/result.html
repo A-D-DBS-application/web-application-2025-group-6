@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% set start_fmt = start | replace('-', '/') %}
+{% set end_fmt = end | replace('-', '/') %}
+
 <div class="trip-header">
     <div class="trip-header-overlay">
         <h1>Your Personalized Journey</h1>
-        {# De foutieve tekst over de foto is verwijderd #}
         <p>Your custom itinerary, generated using priority scoring and destination data.</p>
     </div>
 </div>
@@ -13,10 +15,11 @@
 
     <div class="trip-summary-container">
         <div class="trip-summary-grid">
+
             <div class="summary-box detail-box">
                 <i class="icon-calendar"></i>
                 <h3>Travel Dates</h3>
-                <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
+                <p>{{ start_fmt }} – {{ end_fmt }}</p>
             </div>
 
             <div class="summary-box detail-box">
@@ -31,72 +34,63 @@
                 <p>Budget: {{ budget or "N/A" }}</p>
                 <p>Stay: {{ accommodation or "N/A" }}</p>
             </div>
-            
         </div>
-        
-        {# De Oranje Algorithm Focus Box is in de CSS op 'transparent' gezet of uit de HTML verwijderd #}
-        
     </div>
-    
+
     <h2 class="section-title">Suggested Itinerary Overview</h2>
 
     <div class="itinerary-grid">
-        
+
         {% if itinerary %}
-            
+
             {% for item in itinerary %}
                 
-                {# Haal de duur op uit het meegestuurde activity object #}
                 {% set activity_duration = item.activity.duration_days or 1 %}
-                
-                {# Bepaal de dag(en) om te tonen #}
                 {% set start_day = item.day %}
                 {% set end_day = start_day + activity_duration - 1 %}
-                
+
                 {% set day_display %}
                     {% if activity_duration > 1 %}
-                        Dag {{ start_day }} – {{ end_day }}
+                        Day {{ start_day }} – {{ end_day }}
                     {% else %}
-                        Dag {{ start_day }}
+                        Day {{ start_day }}
                     {% endif %}
                 {% endset %}
-                
+
                 <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}">
-                    
+
                     <div class="card-image-wrapper">
-                        {# Afbeelding placeholder: gebruikt de activiteitstitel als tekst #}
-                        <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
+                        <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" 
+                             alt="{{ item.title }}" class="activity-img">
                     </div>
-                    
+
                     <div class="card-content">
                         <span class="day-label">{{ day_display }}</span>
-                        
+
                         <h3>{{ item.title }}</h3>
-                        
                         <p>{{ item.description }}</p>
-                        
+
                         {% if activity_duration > 1 %}
                             <p class="duration-note-large">
-                                <i class="icon-clock"></i> **Duration:** {{ activity_duration }} days
-                                {# WIJZIGING: 'Duur' vervangen door 'Duration' en 'dagen' door 'days' #}
+                                <i class="icon-clock"></i> Duration: {{ activity_duration }} days
                             </p>
                         {% endif %}
                     </div>
                 </div>
             {% endfor %}
-            
+
         {% else %}
-             <div class="no-results-card">
-                <h3>Geen Reisplan Gevonden</h3>
-                <p>Er konden geen activiteiten worden gevonden die passen bij de gekozen criteria. Controleer of er activiteiten zijn voor het gekozen land in de database of pas je interesses aan.</p>
+            <div class="no-results-card">
+                <h3>No Itinerary Found</h3>
+                <p>No activities matched your preferences. Try adjusting your settings or check your data.</p>
             </div>
         {% endif %}
-        
+
     </div>
-    
+
     <div class="action-section">
-        <a href="{{ url_for('main.index') }}" class="primary-action-btn">Start een nieuwe planning</a>
-        <p>Wil je dit plan opslaan of bespreken? Neem contact op met je partner.</p>
+        <a href="{{ url_for('main.index') }}" class="primary-action-btn">Start a new plan</a>
+        <p>Want to save or discuss this plan? Contact your travel partner.</p>
     </div>
 
 </div>
