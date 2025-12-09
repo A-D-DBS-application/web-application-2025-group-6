@@ -1,31 +1,32 @@
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash
-from app import db # Importeer de db instantie
-from app.models import Traveler, ActivityType, Itinerary # Importeer de modellen
+from app import db 
+from app.models import Traveler, ActivityType, Itinerary 
 from datetime import datetime, date
 from sqlalchemy import func
 import json 
 import random 
 
-# BELANGRIJKE OPMERKING: De foute import 'array_overlap' is verwijderd.
-# De PostgreSQL array operator ('&&') wordt nu direct op de kolom gebruikt, wat de fout oplost.
-
 main_bp = Blueprint("main", __name__)
 
-# Functie om de start- en einddatum om te zetten van string (dd/mm/yyyy) naar Python Date object
+# Functie om de start- en einddatum om te zetten van string naar Python Date object
+# Deze functie kan nu zowel dd/mm/yyyy (oude HTML) als yyyy-mm-dd (nieuwe HTML5 date input) verwerken
 def parse_date(date_str):
-    try:
-        return datetime.strptime(date_str, '%d/%m/%Y').date()
-    except ValueError:
+    if not date_str:
         return None
+    try:
+        # Probeer het nieuwe HTML5 format (YYYY-MM-DD)
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        try:
+            # Probeer het oude format (DD/MM/YYYY)
+            return datetime.strptime(date_str, '%d/%m/%Y').date()
+        except ValueError:
+            return None
     except TypeError:
         return None
 
-# Functie om het budgetbereik om te zetten naar een numerieke limiet
+# Functie om het budgetbereik om te zetten naar een numerieke limiet (NIET MEER GEBRUIKT VOOR FILTERING)
 def get_max_budget(budget_range):
-    """
-    Vertaalt de string budget_range (low, medium, high, luxury) naar een prijslimiet.
-    Dit is een schatting.
-    """
     if budget_range == 'low':
         return 75 
     elif budget_range == 'medium':
@@ -36,14 +37,13 @@ def get_max_budget(budget_range):
         return 1000 
     return 9999 
 
-# --- Algorithmic Component (Sectie 4): Priority Scoring ---
+# --- Algorithmic Component (De logica blijft ONGEWIJZIGD) ---
 def generate_itinerary(traveler_data):
     """
-    Genereert een reisplan (Itinerary) op basis van de voorkeuren van de reiziger 
-    met behulp van een Priority Scoring algoritme.
+    Genereert een reisplan op basis van Priority Scoring, 
+    waarbij Budgetfiltering in de Query wordt genegeerd.
     """
     
-    # 1. Bepaal de belangrijkste interesses en duur
     interests = {
         'Culture': traveler_data.interest_culture or 0,
         'Food': traveler_data.interest_food or 0,
@@ -52,7 +52,6 @@ def generate_itinerary(traveler_data):
         'Beach': traveler_data.interest_beach or 0
     }
     
-    # Bepaal de totale duur van de reis
     if isinstance(traveler_data.start_date, date) and isinstance(traveler_data.end_date, date):
         duration_days = (traveler_data.end_date - traveler_data.start_date).days + 1
     else:
@@ -60,96 +59,82 @@ def generate_itinerary(traveler_data):
         
     if duration_days <= 0:
         duration_days = 1 
-
-    # Bepaal de maximale prijs per dag/per persoon
-    max_price = get_max_budget(traveler_data.budget_range)
     
-    # 2. Query Activiteiten
-    
-    # We verzamelen de namen van alle categorieën met een score > 0
+    # Query Activiteiten (FILTER ALLEEN OP LAND EN INTERESSES)
     chosen_categories = [k for k, v in interests.items() if v > 0]
     
-    # We gebruiken de PostgreSQL array overlap operator ('&&') in de query.
-    # Dit is de meest efficiënte methode om de filtering te doen.
-    
-    # Query: Filter op land en prijs. Gebruik array overlap ALS er interesses zijn gekozen.
     if chosen_categories:
         activities = ActivityType.query.filter(
             ActivityType.country == traveler_data.country,
-            ActivityType.price_estimation <= max_price,
             ActivityType.interest_categ.op('&&')(chosen_categories) 
         ).all()
     else:
-        # Als er geen interesses zijn, filter dan alleen op land en budget
         activities = ActivityType.query.filter(
             ActivityType.country == traveler_data.country,
-            ActivityType.price_estimation <= max_price
         ).all()
 
-    # 3. Priority Scoring (Kern van het Algoritme)
+    # Priority Scoring
     scored_activities = []
     for activity in activities:
         score = 0
-        
-        # Zorg ervoor dat activity_categories een lijst is (nodig voor de Python logica)
         activity_categories = activity.interest_categ 
         
-        # Roestvrij check: als de array uit de DB als string of None komt, maak er een lege lijst van
         if not activity_categories or not isinstance(activity_categories, list):
-             # Als Supabase de array als een string opslaat (bv. '["Culture", "Food"]'), 
-             # kunnen we deze niet direct gebruiken. We negeren deze voor de MVP 
-             # of vullen een lege lijst in.
              activity_categories = []
         
         for category, interest_score in interests.items():
             if category in activity_categories:
-                # Prioriteitsscore: verhoog de score op basis van hoe belangrijk de matchende categorie is
                 score += interest_score 
-        
-        # Dynamic Pricing idee: Geef activiteiten met een lagere prijs een kleine boost
-        price = activity.price_estimation or 0
-        if max_price > 0 and price > 0:
-            price_factor = (max_price - price) / max_price
-            score += price_factor * 2 
         
         scored_activities.append({
             'activity': activity,
             'score': score
         })
 
-    # Sorteer op de hoogste score (en random voor gelijke scores)
+    # Sorteer op de hoogste score
     random.shuffle(scored_activities)
     scored_activities.sort(key=lambda x: x['score'], reverse=True)
     
-    # 4. Planning genereren
+    # Planning genereren
     itinerary_list = []
     current_day = 1
     
-    # Vul de planning op met de top-scorende activiteiten
     for item in scored_activities:
         activity = item['activity']
         activity_duration = activity.duration_days or 1
         
-        # Stop met plannen als de activiteit niet meer in de resterende dagen past
         if current_day <= duration_days and current_day + activity_duration - 1 <= duration_days:
             
             itinerary_list.append({
                 "day": current_day, 
                 "title": activity.name,
                 "description": activity.description,
-                "activity_type_id": activity.activity_type_id 
+                "activity_type_id": activity.activity_type_id,
+                "activity": activity 
             })
             current_day += activity_duration
             
-    # Vul resterende dagen op met een standaard activiteit (Moet ID 1 in de database zijn)
-    # Zorg dat er een activiteit met ID 1 bestaat in Supabase (bv. "Aankomst / Vrije dag")
+    # Vul resterende dagen op met een standaard activiteit (Vrije dag)
+    placeholder_activity = ActivityType.query.get(1)
+    
     while len(itinerary_list) < duration_days:
         day_num = len(itinerary_list) + 1
+        
+        if placeholder_activity:
+            title = f"Day {day_num} – Local Exploration"
+            description = "Enjoy a free day to explore the local area, shop, or relax."
+            placeholder_id = 1
+        else:
+            title = f"Day {day_num} – Free Day"
+            description = "No activity found for this day."
+            placeholder_id = None
+            
         itinerary_list.append({
             "day": day_num,
-            "title": "Day {} – Local Exploration".format(day_num),
-            "description": "Enjoy a free day to explore the local area, shop, or relax.",
-            "activity_type_id": 1 
+            "title": title,
+            "description": description,
+            "activity_type_id": placeholder_id,
+            "activity": placeholder_activity
         })
 
     return itinerary_list[:duration_days] 
@@ -158,19 +143,31 @@ def generate_itinerary(traveler_data):
 
 @main_bp.route("/")
 def index():
-    # Wissen van de sessie bij de start om een nieuwe reis te garanderen
+    """Toont de bestemmingskeuze (wordt nu afgehandeld door index.html)."""
     session.clear() 
     return render_template("index.html")
 
+# NIEUWE ROUTE: Verwerkt de klik op de 'Discover [Land]' knoppen
+@main_bp.route("/start_trip/<country_name>", methods=["POST"])
+def start_trip_route(country_name):
+    """Slaat de gekozen bestemming op en leidt door naar Step 1."""
+    session.clear() 
+    session["country"] = country_name
+    session["duration"] = "N/A" # Reset duur
+    return redirect(url_for("main.step1_route"))
 
 @main_bp.route("/step1", methods=["GET", "POST"])
 def step1_route():
     if request.method == "POST":
-        # Sla de data van Step 1 op in de Flask Session
+        # De data komt nu van de HTML5 date picker (YYYY-MM-DD)
         session["start_date"] = request.form.get("start_date")
         session["end_date"] = request.form.get("end_date")
         session["budget_range"] = request.form.get("budget_range")
-        session["country"] = request.form.get("country") 
+        
+        # Land komt al uit de sessie, maar wordt voor de zekerheid nogmaals gecontroleerd
+        country_from_form = request.form.get("country")
+        if country_from_form:
+            session["country"] = country_from_form
         
         # Bereken de duur
         start_date = parse_date(session.get("start_date"))
@@ -179,32 +176,34 @@ def step1_route():
         duration = (end_date - start_date).days + 1 if start_date and end_date and end_date >= start_date else "N/A"
         session["duration"] = duration
         
-        # Ga naar de volgende stap
         return redirect(url_for("main.step2_route"))
 
     # Toon het formulier voor GET request
+    if not session.get("country"):
+        flash("Please select a destination first.", "warning")
+        return redirect(url_for("main.index"))
+        
     return render_template("step1.html")
 
 
 @main_bp.route("/step2", methods=["GET", "POST"])
 def step2_route():
     if request.method == "POST":
-        # Sla de data van Step 2 op in de Flask Session
         session["adults"] = request.form.get("adults", type=int)
         session["children"] = request.form.get("children", type=int)
         session["accommodation_type"] = request.form.get("accommodation_type")
         
-        # Sla de interesses op
         session["interest_culture"] = request.form.get("culture", type=int)
         session["interest_food"] = request.form.get("food", type=int)
         session["interest_wildlife"] = request.form.get("wildlife", type=int)
         session["interest_history"] = request.form.get("history", type=int)
         session["interest_beach"] = request.form.get("beach", type=int)
 
-        # De gegevens zijn compleet, sla ze op in de database en genereer het resultaat
         return redirect(url_for("main.result_route"))
         
-    # Toon het formulier voor GET request (geeft gegevens van Step 1 door)
+    if not session.get("country"):
+        return redirect(url_for("main.index"))
+
     return render_template(
         "step2.html",
         duration=session.get("duration", "N/A"),
@@ -216,6 +215,9 @@ def step2_route():
 @main_bp.route("/result")
 def result_route():
     # 1. Opslaan van de Traveler data in Supabase
+    if not session.get("country") or not session.get("start_date"):
+         return redirect(url_for("main.index"))
+         
     try:
         new_traveler = Traveler(
             start_date=parse_date(session.get("start_date")),
@@ -239,7 +241,6 @@ def result_route():
     except Exception as e:
         flash(f"Fout bij het opslaan van reizigersgegevens in de database.", "danger")
         print(f"DATABASE FOUT: {e}")
-        # Val terug op sessiegegevens als de database mislukt
         data = {
             "start": session.get("start_date"), "end": session.get("end_date"),
             "budget": session.get("budget_range"), "adults": session.get("adults"),
@@ -254,7 +255,6 @@ def result_route():
     # 3. Opslaan van het gegenereerde reisplan in Supabase
     try:
         for item in itinerary_list:
-            # Sla het plan alleen op als er een geldige activity_type_id is
             if item.get("activity_type_id") is not None:
                 new_itinerary_item = Itinerary(
                     traveler_id=traveler_id,
@@ -282,7 +282,6 @@ def result_route():
         "itinerary": itinerary_list 
     }
     
-    # Wis de sessie nadat het resultaat is getoond
     session.clear() 
     
     return render_template("result.html", **data)

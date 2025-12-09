@@ -2,63 +2,56 @@
 {% block content %}
 
 <div class="step-container">
+    
+    {# De progress bar is aangepast om de geselecteerde bestemming te tonen #}
+    <div class="progress-label">Step 1 of 2: Trip Details (Destination: {{ session.country or 'N/A' }})</div>
+    <div class="progress-bar"><div class="progress-fill" style="width: 50%;"></div></div>
+    
+    <div class="step-card">
+        <div class="step-card-header">
+            <div class="icon-circle">📅</div>
+            <h2>Plan Your Dates & Budget</h2>
+        </div>
 
-    <div class="progress-label">Step 1 of 2 – Travel Details & Budget</div>
-    <div class="progress-bar">
-        <div class="progress-fill" style="width: 50%;"></div>
-    </div>
+        {# Land is al in de sessie opgeslagen, dus dit formulier moet dat terugsturen #}
+        <form action="{{ url_for('main.step1_route') }}" method="POST" class="step-form"> 
+            
+            {# VERWIJDERD: Handmatige tekstinvoer en pattern attribute. #}
+            {# NIEUW: input type="date" voor native calendar picker #}
+            
+            <div class="form-group">
+                <label for="start_date">Start Date *</label>
+                <input type="date" id="start_date" name="start_date" required class="date-picker-input">
+            </div>
 
-    <div class="step-card">
-        <div class="step-card-header">
-            <div class="icon-circle">✈️</div>
-            <h2>Travel Details & Budget</h2>
-        </div>
+            <div class="form-group">
+                <label for="end_date">End Date *</label>
+                <input type="date" id="end_date" name="end_date" required class="date-picker-input">
+            </div>
 
-                <form action="{{ url_for('main.step1_route') }}" method="POST" class="step-form"> 
+            <div class="form-group">
+                <label for="budget_range">Budget Range *</label>
+                <select id="budget_range" name="budget_range" required>
+                    <option value="" disabled selected>Select budget range</option>
+                    <option value="low">$ Budget</option> 
+                    <option value="medium">$$ Moderate</option>
+                    <option value="high">$$$ Comfort</option>
+                    <option value="luxury">$$$$ Luxury</option> 
+                </select>
+            </div>
+            
+            {# VERWIJDERD: Het "Choose Destination" select veld. #}
+            {# TOEGEVOEGD: Verborgen veld om het land uit de sessie terug te sturen naar de route. #}
+            <input type="hidden" name="country" value="{{ session.country }}">
+            
 
-                        <label>Start Date <span class="red">*</span></label>
-            <input type="text" name="start_date" placeholder="dd/mm/yyyy" required pattern="\d{2}/\d{2}/\d{4}" title="Format: dd/mm/yyyy">
-                                     <label>End Date <span class="red">*</span></label>
-            <input type="text" name="end_date" placeholder="dd/mm/yyyy" required pattern="\d{2}/\d{2}/\d{4}" title="Format: dd/mm/yyyy">
-
-                        <label>Budget Range <span class="red">*</span></label>
-            <select name="budget_range" id="budgetSelect" required>
-                <option value="" disabled selected>Select budget range</option>
-                                <option value="low">$ Budget</option> 
-                <option value="medium">$$ Moderate</option>
-                <option value="high">$$$ Comfort</option>
-                <option value="luxury">$$$$ Luxury</option> 
-            </select>
-
-                        <label>Choose Destination <span class="red">*</span></label>
-            <select name="country" required>
-                <option value="" disabled selected>Select a country</option>
-                <option value="Uganda">Uganda</option> 
-                <option value="Rwanda">Rwanda</option> 
-                <option value="Tanzania">Tanzania</option>
-            </select>
-            
-
-            <div class="buttons">
-                <button type="submit" class="next-btn">Next →</button>
-            </div>
-        </form>
-    </div>
+            <div class="buttons">
+                <button type="submit" class="next-btn full-width-btn">Next: Traveller Details →</button>
+            </div>
+        </form>
+    </div>
 </div>
 
-<script>
-/*
-    De logica om accommodatie te beperken wordt nu overgenomen door de Flask Session,
-    wat veiliger en robuuster is. De localStorage logica is niet langer nodig.
-
-    We houden enkel de budgetselectie logica, maar we passen de waarden aan:
-*/
-
-document.getElementById("budgetSelect").addEventListener("change", function () {
-    // We hoeven nu niets meer op te slaan in localStorage.
-    // De POST naar /step1 zorgt ervoor dat de 'budget_range' in de Flask Session wordt opgeslagen.
-    // De conditional logic in step2.html zal dan de juiste waarden ontvangen via de route.
-});
-</script>
+{# De JavaScript is verwijderd omdat de logica nu in Flask (server-side) wordt afgehandeld. #}
 
 {% endblock %}

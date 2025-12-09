@@ -2,53 +2,102 @@
 {% block content %}
 
 <div class="trip-header">
-    <div class="trip-header-overlay">
-        <h1>Your Trip Plan</h1>
-        <p>Based on your preferences, here is a suggested East African journey.</p>
-    </div>
+    <div class="trip-header-overlay">
+        <h1>Your Personalized Journey</h1>
+        {# De foutieve tekst over de foto is verwijderd #}
+        <p>Your custom itinerary, generated using priority scoring and destination data.</p>
+    </div>
 </div>
 
 <div class="step-container">
 
-    <div class="trip-summary">
-        <div class="summary-box">
-            <h3>Dates</h3>
-            <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
-        </div>
+    <div class="trip-summary-container">
+        <div class="trip-summary-grid">
+            <div class="summary-box detail-box">
+                <i class="icon-calendar"></i>
+                <h3>Travel Dates</h3>
+                <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
+            </div>
 
-        <div class="summary-box">
-            <h3>Travellers</h3>
-            <p>Adults: {{ adults or "1" }} | Children: {{ children or "0" }}</p>
-        </div>
+            <div class="summary-box detail-box">
+                <i class="icon-users"></i>
+                <h3>Travellers</h3>
+                <p>{{ adults or "1" }} Adults | {{ children or "0" }} Children</p>
+            </div>
 
-        <div class="summary-box">
-            <h3>Budget & Stay</h3>
-            <p>Budget: {{ budget or "N/A" }}<br>Accommodation: {{ accommodation or "N/A" }}</p>
-        </div>
-    </div>
-
-    <h2 class="section-title">Suggested Itinerary</h2>
-
-    <div class="itinerary">
+            <div class="summary-box detail-box">
+                <i class="icon-tag"></i>
+                <h3>Budget & Style</h3>
+                <p>Budget: {{ budget or "N/A" }}</p>
+                <p>Stay: {{ accommodation or "N/A" }}</p>
+            </div>
+            
+        </div>
         
-        {# WIJZIGING: Gebruik een Jinja loop om de dynamische planning te tonen #}
+        {# De Oranje Algorithm Focus Box is in de CSS op 'transparent' gezet of uit de HTML verwijderd #}
+        
+    </div>
+    
+    <h2 class="section-title">Suggested Itinerary Overview</h2>
+
+    <div class="itinerary-grid">
+        
         {% if itinerary %}
-            {% for day_plan in itinerary %}
-                <div class="day">
-                    <h3>Day {{ day_plan.day }} – {{ day_plan.title }}</h3>
-                    <p>{{ day_plan.description }}</p>
-                    {# Optioneel: Toon debug info zoals Activity ID en Score #}
-                    {# <p class="small-note">Activity ID: {{ day_plan.activity_type_id }}</p> #}
+            
+            {% for item in itinerary %}
+                
+                {# Haal de duur op uit het meegestuurde activity object #}
+                {% set activity_duration = item.activity.duration_days or 1 %}
+                
+                {# Bepaal de dag(en) om te tonen #}
+                {% set start_day = item.day %}
+                {% set end_day = start_day + activity_duration - 1 %}
+                
+                {% set day_display %}
+                    {% if activity_duration > 1 %}
+                        Dag {{ start_day }} – {{ end_day }}
+                    {% else %}
+                        Dag {{ start_day }}
+                    {% endif %}
+                {% endset %}
+                
+                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}">
+                    
+                    <div class="card-image-wrapper">
+                        {# Afbeelding placeholder: gebruikt de activiteitstitel als tekst #}
+                        <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
+                    </div>
+                    
+                    <div class="card-content">
+                        <span class="day-label">{{ day_display }}</span>
+                        
+                        <h3>{{ item.title }}</h3>
+                        
+                        <p>{{ item.description }}</p>
+                        
+                        {% if activity_duration > 1 %}
+                            <p class="duration-note-large">
+                                <i class="icon-clock"></i> **Duration:** {{ activity_duration }} days
+                                {# WIJZIGING: 'Duur' vervangen door 'Duration' en 'dagen' door 'days' #}
+                            </p>
+                        {% endif %}
+                    </div>
                 </div>
             {% endfor %}
+            
         {% else %}
-             <div class="day">
+             <div class="no-results-card">
                 <h3>Geen Reisplan Gevonden</h3>
-                <p>Er konden geen activiteiten worden gevonden die passen bij de gekozen criteria (Land, Budget en Interesses). Probeer de criteria te verruimen.</p>
+                <p>Er konden geen activiteiten worden gevonden die passen bij de gekozen criteria. Controleer of er activiteiten zijn voor het gekozen land in de database of pas je interesses aan.</p>
             </div>
         {% endif %}
         
-    </div>
+    </div>
+    
+    <div class="action-section">
+        <a href="{{ url_for('main.index') }}" class="primary-action-btn">Start een nieuwe planning</a>
+        <p>Wil je dit plan opslaan of bespreken? Neem contact op met je partner.</p>
+    </div>
 
 </div>
 
