@@ -272,9 +272,32 @@ def result_route():
         print(f"DATABASE FOUT BIJ ITINERARY: {e}")
 
     # 4. Resultaten tonen
+    # Format dates to DD-MM-YYYY
+    start_date_str = session.get("start_date")
+    end_date_str = session.get("end_date")
+    
+    start_date_formatted = "not set"
+    end_date_formatted = "not set"
+    
+    if start_date_str:
+        try:
+            start_date_obj = parse_date(start_date_str)
+            if start_date_obj:
+                start_date_formatted = start_date_obj.strftime("%d-%m-%Y")
+        except:
+            start_date_formatted = start_date_str
+    
+    if end_date_str:
+        try:
+            end_date_obj = parse_date(end_date_str)
+            if end_date_obj:
+                end_date_formatted = end_date_obj.strftime("%d-%m-%Y")
+        except:
+            end_date_formatted = end_date_str
+    
     data = {
-        "start": session.get("start_date"),
-        "end": session.get("end_date"),
+        "start": start_date_formatted,
+        "end": end_date_formatted,
         "budget": session.get("budget_range"),
         "adults": session.get("adults"),
         "children": session.get("children"),
