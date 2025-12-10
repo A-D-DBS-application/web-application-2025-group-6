@@ -22,8 +22,8 @@
                 <label>Adults (13+ years)</label>
                 <div class="counter-box">
                     <button type="button" class="counter-btn" onclick="changeCount('adults', -1)">−</button>
-                    <span id="adults">1</span>
-                    <input type="hidden" name="adults" id="adults_input" value="1">
+                    <span id="adults">{{ saved_adults }}</span>
+                    <input type="hidden" name="adults" id="adults_input" value="{{ saved_adults }}">
                     <button type="button" class="counter-btn" onclick="changeCount('adults', 1)">+</button>
                 </div>
             </div>
@@ -32,8 +32,8 @@
                 <label>Children (0–12 years)</label>
                 <div class="counter-box">
                     <button type="button" class="counter-btn" onclick="changeCount('children', -1)">−</button>
-                    <span id="children">0</span>
-                    <input type="hidden" name="children" id="children_input" value="0">
+                    <span id="children">{{ saved_children }}</span>
+                    <input type="hidden" name="children" id="children_input" value="{{ saved_children }}">
                     <button type="button" class="counter-btn" onclick="changeCount('children', 1)">+</button>
                 </div>
             </div>
@@ -71,28 +71,27 @@
             <div class="form-group">
                 <label>Accommodation Type</label>
                 <select name="accommodation_type" required>
-                    
-                    <option value="hostel">Hostel</option>
-                    <option value="airbnb">Apartment / Airbnb</option>
-                    <option value="hotel3">Hotel (3 Star)</option>
+                    <option value="hostel" {% if saved_accommodation == 'hostel' %}selected{% endif %}>Hostel</option>
+                    <option value="airbnb" {% if saved_accommodation == 'airbnb' %}selected{% endif %}>Apartment / Airbnb</option>
+                    <option value="hotel3" {% if saved_accommodation == 'hotel3' %}selected{% endif %}>Hotel (3 Star)</option>
 
                     <option value="hotel4"
-                        {% if budget in ['low'] %} disabled class="disabled-option" {% endif %}>
+                        {% if budget in ['low'] %} disabled class="disabled-option" {% elif saved_accommodation == 'hotel4' %}selected{% endif %}>
                         Hotel (4 Star) {% if budget in ['low'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="hotel5"
-                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% endif %}>
+                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% elif saved_accommodation == 'hotel5' %}selected{% endif %}>
                         Hotel (5 Star) {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="resort"
-                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% endif %}>
+                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% elif saved_accommodation == 'resort' %}selected{% endif %}>
                         Resort {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="boutique"
-                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% endif %}>
+                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% elif saved_accommodation == 'boutique' %}selected{% endif %}>
                         Boutique Hotel {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
                     </option>
                 </select>
@@ -107,6 +106,17 @@
     </div>
 </div>
 
+{# Pass saved interests as JSON to avoid JavaScript syntax errors #}
+<script type="application/json" id="saved-interests-data">
+{
+    "culture": {{ saved_culture|default(0)|tojson }},
+    "food": {{ saved_food|default(0)|tojson }},
+    "wildlife": {{ saved_wildlife|default(0)|tojson }},
+    "history": {{ saved_history|default(0)|tojson }},
+    "beach": {{ saved_beach|default(0)|tojson }}
+}
+</script>
+
 <script>
 function changeCount(field, diff) {
     let span = document.getElementById(field);
@@ -118,15 +128,30 @@ function changeCount(field, diff) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+    // Get saved interest values from JSON script tag
+    const savedInterestsData = document.getElementById('saved-interests-data');
+    const savedInterests = savedInterestsData ? JSON.parse(savedInterestsData.textContent) : {
+        'culture': 0,
+        'food': 0,
+        'wildlife': 0,
+        'history': 0,
+        'beach': 0
+    };
 
     document.querySelectorAll(".interest-buttons").forEach(container => {
         let name = container.dataset.name;
+        let savedValue = savedInterests[name] || 0;
 
         for (let i = 1; i <= 5; i++) {
             let btn = document.createElement("button");
             btn.type = "button";
             btn.className = "interest-btn";
             btn.textContent = i;
+
+            // Set initial state based on saved value
+            if (i <= savedValue) {
+                btn.classList.add("active");
+            }
 
             btn.onclick = () => {
                 container.querySelectorAll("button").forEach(b => b.classList.remove("active"));
@@ -147,6 +172,18 @@ document.addEventListener("DOMContentLoaded", function () {
             };
 
             container.appendChild(btn);
+        }
+
+        // Set the hidden input value if there's a saved value
+        if (savedValue > 0) {
+            let existing = container.parentElement.querySelector("input[name='" + name + "']");
+            if (!existing) {
+                existing = document.createElement("input");
+                existing.type = "hidden";
+                existing.name = name;
+                container.parentElement.appendChild(existing);
+            }
+            existing.value = savedValue;
         }
     });
 });

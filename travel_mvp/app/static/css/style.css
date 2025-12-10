@@ -31,6 +31,12 @@ a {
     font-weight: 500;
 }
 
+.navbar .nav-right a.disabled-link {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+
 /* HERO */
 .hero {
     width: 100%;

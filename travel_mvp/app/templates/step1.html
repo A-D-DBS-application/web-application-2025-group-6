@@ -21,22 +21,22 @@
             
             <div class="form-group">
                 <label for="start_date">Start Date *</label>
-                <input type="date" id="start_date" name="start_date" required class="date-picker-input">
+                <input type="date" id="start_date" name="start_date" value="{{ saved_start_date }}" required class="date-picker-input">
             </div>
 
             <div class="form-group">
                 <label for="end_date">End Date *</label>
-                <input type="date" id="end_date" name="end_date" required class="date-picker-input">
+                <input type="date" id="end_date" name="end_date" value="{{ saved_end_date }}" required class="date-picker-input">
             </div>
 
             <div class="form-group">
                 <label for="budget_range">Budget Range *</label>
                 <select id="budget_range" name="budget_range" required>
-                    <option value="" disabled selected>Select budget range</option>
-                    <option value="low">$ Budget</option> 
-                    <option value="medium">$$ Moderate</option>
-                    <option value="high">$$$ Comfort</option>
-                    <option value="luxury">$$$$ Luxury</option> 
+                    <option value="" {% if not saved_budget %}disabled selected{% endif %}>Select budget range</option>
+                    <option value="low" {% if saved_budget == 'low' %}selected{% endif %}>$ Budget</option> 
+                    <option value="medium" {% if saved_budget == 'medium' %}selected{% endif %}>$$ Moderate</option>
+                    <option value="high" {% if saved_budget == 'high' %}selected{% endif %}>$$$ Comfort</option>
+                    <option value="luxury" {% if saved_budget == 'luxury' %}selected{% endif %}>$$$$ Luxury</option> 
                 </select>
             </div>
             

@@ -144,14 +144,27 @@ def generate_itinerary(traveler_data):
 @main_bp.route("/")
 def index():
     """Toont de bestemmingskeuze (wordt nu afgehandeld door index.html)."""
-    session.clear() 
+    # Only clear country when coming from Home button, keep other preferences
+    # Check if this is a full reset (from "Start a new planning" button)
+    reset_all = request.args.get('reset') == 'all'
+    
+    if reset_all:
+        # Full reset - clear everything
+        session.clear()
+    else:
+        # Only reset country, keep preferences
+        if 'country' in session:
+            del session['country']
+        if 'duration' in session:
+            del session['duration']
+    
     return render_template("index.html")
 
 # NIEUWE ROUTE: Verwerkt de klik op de 'Discover [Land]' knoppen
 @main_bp.route("/start_trip/<country_name>", methods=["POST"])
 def start_trip_route(country_name):
     """Slaat de gekozen bestemming op en leidt door naar Step 1."""
-    session.clear() 
+    # Only update country and reset duration, keep other preferences
     session["country"] = country_name
     session["duration"] = "N/A" # Reset duur
     return redirect(url_for("main.step1_route"))
@@ -182,8 +195,14 @@ def step1_route():
     if not session.get("country"):
         flash("Please select a destination first.", "warning")
         return redirect(url_for("main.index"))
-        
-    return render_template("step1.html")
+    
+    # Pass saved values to template
+    return render_template(
+        "step1.html",
+        saved_start_date=session.get("start_date", ""),
+        saved_end_date=session.get("end_date", ""),
+        saved_budget=session.get("budget_range", "")
+    )
 
 
 @main_bp.route("/step2", methods=["GET", "POST"])
@@ -208,7 +227,16 @@ def step2_route():
         "step2.html",
         duration=session.get("duration", "N/A"),
         budget=session.get("budget_range", "N/A"),
-        country=session.get("country", "N/A")
+        country=session.get("country", "N/A"),
+        # Pass saved preferences to template
+        saved_adults=session.get("adults", 1),
+        saved_children=session.get("children", 0),
+        saved_accommodation=session.get("accommodation_type", ""),
+        saved_culture=session.get("interest_culture", 0),
+        saved_food=session.get("interest_food", 0),
+        saved_wildlife=session.get("interest_wildlife", 0),
+        saved_history=session.get("interest_history", 0),
+        saved_beach=session.get("interest_beach", 0)
     )
 
 
@@ -295,6 +323,21 @@ def result_route():
         except:
             end_date_formatted = end_date_str
     
+    # Save all preferences data before clearing session
+    saved_country = session.get("country")
+    saved_start_date = session.get("start_date")
+    saved_end_date = session.get("end_date")
+    saved_budget_range = session.get("budget_range")
+    saved_adults = session.get("adults")
+    saved_children = session.get("children")
+    saved_accommodation_type = session.get("accommodation_type")
+    saved_interest_culture = session.get("interest_culture")
+    saved_interest_food = session.get("interest_food")
+    saved_interest_wildlife = session.get("interest_wildlife")
+    saved_interest_history = session.get("interest_history")
+    saved_interest_beach = session.get("interest_beach")
+    saved_duration = session.get("duration")
+    
     data = {
         "start": start_date_formatted,
         "end": end_date_formatted,
@@ -305,6 +348,33 @@ def result_route():
         "itinerary": itinerary_list 
     }
     
-    session.clear() 
+    session.clear()
+    # Restore all preferences data so they're available when clicking Preferences from result page
+    if saved_country:
+        session["country"] = saved_country
+    if saved_start_date:
+        session["start_date"] = saved_start_date
+    if saved_end_date:
+        session["end_date"] = saved_end_date
+    if saved_budget_range:
+        session["budget_range"] = saved_budget_range
+    if saved_adults is not None:
+        session["adults"] = saved_adults
+    if saved_children is not None:
+        session["children"] = saved_children
+    if saved_accommodation_type:
+        session["accommodation_type"] = saved_accommodation_type
+    if saved_interest_culture is not None:
+        session["interest_culture"] = saved_interest_culture
+    if saved_interest_food is not None:
+        session["interest_food"] = saved_interest_food
+    if saved_interest_wildlife is not None:
+        session["interest_wildlife"] = saved_interest_wildlife
+    if saved_interest_history is not None:
+        session["interest_history"] = saved_interest_history
+    if saved_interest_beach is not None:
+        session["interest_beach"] = saved_interest_beach
+    if saved_duration:
+        session["duration"] = saved_duration
     
     return render_template("result.html", **data)
