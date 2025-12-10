@@ -1,0 +1,106 @@
+-- =========================================================
+-- 1. Traveler
+-- =========================================================
+CREATE TABLE IF NOT EXISTS traveler (
+    traveler_id SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    surname     TEXT,
+    dob         DATE,
+    gender      TEXT,
+    email       TEXT UNIQUE NOT NULL,
+    password    TEXT NOT NULL
+);
+
+-- =========================================================
+-- 2. Supplier
+--    (wordt gebruikt door agency, activity_type en activity)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS supplier (
+    supplier_id  SERIAL PRIMARY KEY,
+    name         TEXT NOT NULL,
+    company_id   TEXT UNIQUE,   -- uniek zodat we ON CONFLICT kunnen gebruiken
+    company_name TEXT
+);
+
+-- Voeg drie suppliers toe (alleen als ze nog niet bestaan)
+INSERT INTO supplier (name, company_id, company_name)
+VALUES
+  ('Safari Adventures Ltd',  'SUP001', 'Safari Adventures Ltd'),
+  ('Wildlife Tours Africa',  'SUP002', 'Wildlife Tours Africa'),
+  ('Eco Travel Group',       'SUP003', 'Eco Travel Group')
+ON CONFLICT (company_id) DO NOTHING;
+
+-- =========================================================
+-- 3. Agency
+--    - Agency -> Supplier (N:1) via supplier_id
+--    - Itinerary -> Agency (N:1) via agency_id (zie tabel itinerary)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS agency (
+    agency_id   SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    supplier_id INT  NOT NULL
+        REFERENCES supplier(supplier_id) ON DELETE CASCADE
+);
+
+-- =========================================================
+-- 4. Activity Type
+--    - ActivityType -> Supplier (N:1) via supplier_id
+--    - Activity -> ActivityType (N:1) via activity_type_id (zie tabel activity)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS activity_type (
+    activity_type_id SERIAL PRIMARY KEY,
+    name             TEXT NOT NULL,
+    description      TEXT,
+    duration_days    INTEGER,
+    country          TEXT NOT NULL,       -- 'uganda' | 'rwanda' | 'tanzania'
+    supplier_id      INT  NOT NULL
+        REFERENCES supplier(supplier_id) ON DELETE CASCADE
+);
+
+-- =========================================================
+-- 5. Itinerary
+--    - Itinerary -> Traveler (N:1) via traveler_id
+--    - Itinerary -> Agency   (N:1) via agency_id
+--    - Activity -> Itinerary (N:1) via itinerary_id (zie tabel activity)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS itinerary (
+    itinerary_id       SERIAL PRIMARY KEY,
+    traveler_id        INT NOT NULL
+        REFERENCES traveler(traveler_id) ON DELETE CASCADE,
+    agency_id          INT NOT NULL
+        REFERENCES agency(agency_id) ON DELETE CASCADE,
+
+    name               TEXT NOT NULL,
+    start_date         DATE,
+    end_date           DATE,
+    country            TEXT,
+    activity_type      TEXT,
+    number_of_travelers INT
+);
+
+-- =========================================================
+-- 6. Activity
+--    - Activity -> Itinerary    (N:1) via itinerary_id
+--    - Activity -> Supplier     (N:1) via supplier_id
+--    - Activity -> ActivityType (N:1) via activity_type_id
+-- =========================================================
+CREATE TABLE IF NOT EXISTS activity (
+    activity_id      SERIAL PRIMARY KEY,
+
+    itinerary_id     INT NOT NULL
+        REFERENCES itinerary(itinerary_id) ON DELETE CASCADE,
+
+    supplier_id      INT NOT NULL
+        REFERENCES supplier(supplier_id) ON DELETE CASCADE,
+
+    activity_type_id INT NOT NULL
+        REFERENCES activity_type(activity_type_id) ON DELETE CASCADE,
+
+    name             TEXT,
+    date             DATE,
+    time             TEXT,
+    price            NUMERIC,
+    duration         TEXT,
+    participants     INT
+);
+
