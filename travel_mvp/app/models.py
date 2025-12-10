@@ -45,6 +45,7 @@ class ActivityType(db.Model):
     duration_days = db.Column(db.Integer)
     price_estimation = db.Column(db.Numeric(10, 2)) # Numeric voor geldwaarden
     country = db.Column(db.String(50))
+    images_url_text = db.Column(db.String(500)) # URL naar de foto van de activiteit
     
     # Dit is de cruciale kolom voor je algoritme: [ 'Wildlife', 'Culture' ]
     # We gebruiken ARRAY(db.String) om de PostgreSQL array functionaliteit te ondersteunen.

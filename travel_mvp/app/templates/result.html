@@ -64,8 +64,12 @@
                 <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}">
                     
                     <div class="card-image-wrapper">
-                        {# Afbeelding placeholder: gebruikt de activiteitstitel als tekst #}
-                        <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
+                        {# Toon de foto van de activiteit als deze beschikbaar is, anders gebruik placeholder #}
+                        {% if item.activity and item.activity.images_url_text %}
+                            <img src="{{ item.activity.images_url_text }}" alt="{{ item.title }}" class="activity-img">
+                        {% else %}
+                            <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
+                        {% endif %}
                     </div>
                     
                     <div class="card-content">
