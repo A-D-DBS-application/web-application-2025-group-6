@@ -14,13 +14,10 @@
             <h2>Personal Preferences</h2>
         </div>
 
-        <!-- BELANGRIJK: actie moet /step2 blijven -->
         <form action="/step2" method="POST" class="step-form" id="step2-form">
 
-            <!-- BUDGET MEEGEVEN (naam MOET budget blijven) -->
             <input type="hidden" name="budget" value="{{ budget }}">
 
-            <!-- ADULTS -->
             <div class="form-group">
                 <label>Adults (13+ years)</label>
                 <div class="counter-box">
@@ -31,7 +28,6 @@
                 </div>
             </div>
 
-            <!-- CHILDREN -->
             <div class="form-group">
                 <label>Children (0–12 years)</label>
                 <div class="counter-box">
@@ -42,7 +38,6 @@
                 </div>
             </div>
 
-            <!-- INTERESTS -->
             <div class="interests-section">
                 <h3>Your Interests</h3>
                 <p class="small-note">1 = low importance, 5 = very important</p>
@@ -73,7 +68,6 @@
                 </div>
             </div>
 
-            <!-- ACCOMMODATION -->
             <div class="form-group">
                 <label>Accommodation Type</label>
                 <select name="accommodation_type" required>
@@ -83,23 +77,23 @@
                     <option value="hotel3">Hotel (3 Star)</option>
 
                     <option value="hotel4"
-                        {% if budget == 'low' %} disabled class="disabled-option" {% endif %}>
-                        Hotel (4 Star) {% if budget == 'low' %}(Not available for your budget){% endif %}
+                        {% if budget in ['low'] %} disabled class="disabled-option" {% endif %}>
+                        Hotel (4 Star) {% if budget in ['low'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="hotel5"
-                        {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
-                        Hotel (5 Star) {% if budget != 'high' %}(Not available for your budget){% endif %}
+                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% endif %}>
+                        Hotel (5 Star) {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="resort"
-                        {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
-                        Resort {% if budget != 'high' %}(Not available for your budget){% endif %}
+                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% endif %}>
+                        Resort {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="boutique"
-                        {% if budget != 'high' %} disabled class="disabled-option" {% endif %}>
-                        Boutique Hotel {% if budget != 'high' %}(Not available for your budget){% endif %}
+                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% endif %}>
+                        Boutique Hotel {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
                     </option>
                 </select>
             </div>
