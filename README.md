@@ -2,6 +2,7 @@
 
 Figma UI link: https://comet-cow-17802690.figma.site
 
+Link to video recordings with external partner: 
 Figma UI screenshots:
 <img width="1470" height="956" alt="Scherm­afbeelding 2025-11-08 om 09 47 53" src="https://github.com/user-attachments/assets/2e277031-ebb5-41cd-8374-16b7ef8fc5ca" />
 <img width="1470" height="956" alt="Scherm­afbeelding 2025-11-08 om 09 48 04" src="https://github.com/user-attachments/assets/975ad6bf-82cf-4011-951a-2d8b3d864066" />
