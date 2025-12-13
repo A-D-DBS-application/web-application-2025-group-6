@@ -35,7 +35,69 @@ def get_max_budget(budget_range):
         return 450 
     elif budget_range == 'luxury':
         return 1000 
-    return 9999 
+    return 9999
+
+# Shared function: Sla alle preferences data op uit sessie
+def save_session_preferences():
+    """Haalt alle preferences data uit de sessie en retourneert als dictionary."""
+    return {
+        'country': session.get("country"),
+        'start_date': session.get("start_date"),
+        'end_date': session.get("end_date"),
+        'budget_range': session.get("budget_range"),
+        'adults': session.get("adults"),
+        'children': session.get("children"),
+        'accommodation_type': session.get("accommodation_type"),
+        'interest_culture': session.get("interest_culture"),
+        'interest_food': session.get("interest_food"),
+        'interest_wildlife': session.get("interest_wildlife"),
+        'interest_history': session.get("interest_history"),
+        'interest_beach': session.get("interest_beach"),
+        'duration': session.get("duration")
+    }
+
+# Shared function: Herstel preferences data in sessie
+def restore_session_preferences(saved_data):
+    """Herstelt preferences data in de sessie."""
+    if saved_data.get('country'):
+        session["country"] = saved_data['country']
+    if saved_data.get('start_date'):
+        session["start_date"] = saved_data['start_date']
+    if saved_data.get('end_date'):
+        session["end_date"] = saved_data['end_date']
+    if saved_data.get('budget_range'):
+        session["budget_range"] = saved_data['budget_range']
+    if saved_data.get('adults') is not None:
+        session["adults"] = saved_data['adults']
+    if saved_data.get('children') is not None:
+        session["children"] = saved_data['children']
+    if saved_data.get('accommodation_type'):
+        session["accommodation_type"] = saved_data['accommodation_type']
+    if saved_data.get('interest_culture') is not None:
+        session["interest_culture"] = saved_data['interest_culture']
+    if saved_data.get('interest_food') is not None:
+        session["interest_food"] = saved_data['interest_food']
+    if saved_data.get('interest_wildlife') is not None:
+        session["interest_wildlife"] = saved_data['interest_wildlife']
+    if saved_data.get('interest_history') is not None:
+        session["interest_history"] = saved_data['interest_history']
+    if saved_data.get('interest_beach') is not None:
+        session["interest_beach"] = saved_data['interest_beach']
+    if saved_data.get('duration'):
+        session["duration"] = saved_data['duration']
+
+# Shared function: Format date to DD-MM-YYYY
+def format_date_for_display(date_str):
+    """Formatteert een datum string naar DD-MM-YYYY formaat."""
+    if not date_str:
+        return "not set"
+    try:
+        date_obj = parse_date(date_str)
+        if date_obj:
+            return date_obj.strftime("%d-%m-%Y")
+    except:
+        pass
+    return date_str 
 
 # --- Algorithmic Component (De logica blijft ONGEWIJZIGD) ---
 def generate_itinerary(traveler_data):
@@ -300,43 +362,12 @@ def result_route():
         print(f"DATABASE FOUT BIJ ITINERARY: {e}")
 
     # 4. Resultaten tonen
-    # Format dates to DD-MM-YYYY
-    start_date_str = session.get("start_date")
-    end_date_str = session.get("end_date")
+    # Format dates to DD-MM-YYYY using shared function
+    start_date_formatted = format_date_for_display(session.get("start_date"))
+    end_date_formatted = format_date_for_display(session.get("end_date"))
     
-    start_date_formatted = "not set"
-    end_date_formatted = "not set"
-    
-    if start_date_str:
-        try:
-            start_date_obj = parse_date(start_date_str)
-            if start_date_obj:
-                start_date_formatted = start_date_obj.strftime("%d-%m-%Y")
-        except:
-            start_date_formatted = start_date_str
-    
-    if end_date_str:
-        try:
-            end_date_obj = parse_date(end_date_str)
-            if end_date_obj:
-                end_date_formatted = end_date_obj.strftime("%d-%m-%Y")
-        except:
-            end_date_formatted = end_date_str
-    
-    # Save all preferences data before clearing session
-    saved_country = session.get("country")
-    saved_start_date = session.get("start_date")
-    saved_end_date = session.get("end_date")
-    saved_budget_range = session.get("budget_range")
-    saved_adults = session.get("adults")
-    saved_children = session.get("children")
-    saved_accommodation_type = session.get("accommodation_type")
-    saved_interest_culture = session.get("interest_culture")
-    saved_interest_food = session.get("interest_food")
-    saved_interest_wildlife = session.get("interest_wildlife")
-    saved_interest_history = session.get("interest_history")
-    saved_interest_beach = session.get("interest_beach")
-    saved_duration = session.get("duration")
+    # Save all preferences data before clearing session using shared function
+    saved_preferences = save_session_preferences()
     
     data = {
         "start": start_date_formatted,
@@ -350,31 +381,6 @@ def result_route():
     
     session.clear()
     # Restore all preferences data so they're available when clicking Preferences from result page
-    if saved_country:
-        session["country"] = saved_country
-    if saved_start_date:
-        session["start_date"] = saved_start_date
-    if saved_end_date:
-        session["end_date"] = saved_end_date
-    if saved_budget_range:
-        session["budget_range"] = saved_budget_range
-    if saved_adults is not None:
-        session["adults"] = saved_adults
-    if saved_children is not None:
-        session["children"] = saved_children
-    if saved_accommodation_type:
-        session["accommodation_type"] = saved_accommodation_type
-    if saved_interest_culture is not None:
-        session["interest_culture"] = saved_interest_culture
-    if saved_interest_food is not None:
-        session["interest_food"] = saved_interest_food
-    if saved_interest_wildlife is not None:
-        session["interest_wildlife"] = saved_interest_wildlife
-    if saved_interest_history is not None:
-        session["interest_history"] = saved_interest_history
-    if saved_interest_beach is not None:
-        session["interest_beach"] = saved_interest_beach
-    if saved_duration:
-        session["duration"] = saved_duration
+    restore_session_preferences(saved_preferences)
     
     return render_template("result.html", **data)

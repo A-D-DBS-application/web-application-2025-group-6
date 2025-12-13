@@ -5,23 +5,11 @@
     <title>Travel Planner MVP</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-    <div class="navbar">
-        <div class="nav-left">
-            <a href="/">AfriGuide</a>
-        </div>
-        <div class="nav-right">
-            <a href="/">Home</a>
-            {% if session.get('country') %}
-                <a href="/step1">Preferences</a>
-            {% else %}
-                <a href="#" class="disabled-link" title="Pick a country first">Preferences</a>
-            {% endif %}
-        </div>
-    </div>
+    {% include 'partials/navbar.html' %}
 
     {% block content %}{% endblock %}
 

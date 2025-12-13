@@ -1,0 +1,15 @@
+<!-- navbar.html -->
+<div class="navbar">
+    <div class="nav-left">
+        <a href="/">AfriGuide</a>
+    </div>
+    <div class="nav-right">
+        <a href="/">Home</a>
+        {% if session.get('country') %}
+            <a href="/step1">Preferences</a>
+        {% else %}
+            <a href="#" class="disabled-link" title="Pick a country first">Preferences</a>
+        {% endif %}
+    </div>
+</div>
+
