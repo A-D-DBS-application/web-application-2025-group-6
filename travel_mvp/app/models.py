@@ -1,6 +1,12 @@
 from datetime import datetime
 from . import db
-from sqlalchemy.dialects.postgresql import ARRAY # Nodig voor de array-kolom in Supabase (interest_categ)
+from sqlalchemy.dialects.postgresql import ARRAY # Nodig voor de array-kolom (PostgreSQL/Supabase database)
+
+# =========================================================================
+# SQLAlchemy ORM Models
+# ORM voordelen: directe database connectie, minder code, lazy loading
+# Database wordt automatisch omgezet naar Python objecten (geen JSON nodig)
+# =========================================================================
 
 # =========================================================================
 # 1. TRAVEL PLANNER MVP CORE MODELLEN (NIEUW TOEGEVOEGD)
@@ -9,7 +15,7 @@ from sqlalchemy.dialects.postgresql import ARRAY # Nodig voor de array-kolom in 
 
 class Traveler(db.Model):
     # Komt overeen met de data van step1.html en step2.html (de gebruikersinvoer)
-    __tablename__ = 'traveler' # Zorg dat de naam overeenkomt met je Supabase tabel
+    __tablename__ = 'traveler' # Tabel naam in database
     
     traveler_id = db.Column(db.Integer, primary_key=True)
     
@@ -32,11 +38,12 @@ class Traveler(db.Model):
     interest_beach = db.Column(db.Integer)
 
     # Relatie met het gegenereerde reisschema
+    # lazy=True: Lazy loading - data wordt alleen geladen wanneer nodig (ORM voordeel)
     itineraries = db.relationship('Itinerary', backref='traveler', lazy=True)
 
 
 class ActivityType(db.Model):
-    # Komt overeen met je 'public.activity_type' tabel in Supabase
+    # Komt overeen met de 'activity_type' tabel in de database
     __tablename__ = 'activity_type'
 
     activity_type_id = db.Column(db.Integer, primary_key=True)
@@ -45,12 +52,16 @@ class ActivityType(db.Model):
     duration_days = db.Column(db.Integer)
     price_estimation = db.Column(db.Numeric(10, 2)) # Numeric voor geldwaarden
     country = db.Column(db.String(50))
-    images_url_text = db.Column(db.String(500)) # URL naar de foto van de activiteit
+    # Images via Buckets pattern: database slaat alleen file path/URL op, niet de file zelf
+    # Images worden opgeslagen in storage bucket, alleen de URL wordt in database bewaard
+    images_url_text = db.Column(db.String(500)) # URL/path naar de foto (van storage bucket)
     
     # Dit is de cruciale kolom voor je algoritme: [ 'Wildlife', 'Culture' ]
     # We gebruiken ARRAY(db.String) om de PostgreSQL array functionaliteit te ondersteunen.
     interest_categ = db.Column(ARRAY(db.String)) 
     
+    # Relatie met Itinerary items
+    # lazy=True: Lazy loading - data wordt alleen geladen wanneer nodig (ORM voordeel)
     itinerary_items = db.relationship('Itinerary', backref='activity_type', lazy=True)
 
 
@@ -68,7 +79,9 @@ class Itinerary(db.Model):
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
 
-    activity_details = db.relationship("ActivityType", back_populates="itinerary_items", overlaps="activity_type", remote_side=[ActivityType.activity_type_id])
+    # Relatie naar ActivityType (backref wordt automatisch aangemaakt door ActivityType model)
+    # Via backref in ActivityType kunnen we: activity_type.itinerary_items gebruiken
+    # En via de foreign key kunnen we: itinerary.activity_type gebruiken (automatisch via backref)
 
 
 # =========================================================================

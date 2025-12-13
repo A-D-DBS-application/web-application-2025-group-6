@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="trip-header">
+<div class="trip-header {% if country == 'uganda' %}trip-header-uganda{% endif %}" style="background-image: url('{{ background_image }}');">
     <div class="trip-header-overlay">
         <h1>Your Personalized Journey</h1>
         {# De foutieve tekst over de foto is verwijderd #}

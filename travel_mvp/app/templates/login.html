@@ -1,10 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Login / Registreren</h1>
-<p>Geef enkel een gebruikersnaam in (geen wachtwoord nodig).</p>
 
-<form method="post">
-    <input type="text" name="username" placeholder="Gebruikersnaam">
-    <button type="submit">Verder</button>
-</form>
+<div class="step-container">
+    <div class="step-card">
+        <div class="step-card-header">
+            <div class="icon-circle">🔐</div>
+            <h2>Log In / Sign Up</h2>
+        </div>
+        
+        <form method="post" class="step-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required class="date-picker-input">
+                <p class="small-note">No password required for this MVP</p>
+            </div>
+            
+            <div class="buttons">
+                <a href="{{ url_for('main.index') }}" class="back-btn">← Back to Home</a>
+                <button type="submit" class="next-btn">Continue →</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}

@@ -5,7 +5,7 @@
 
     <div class="progress-label">Step 2 of 2 – Personal Preferences</div>
     <div class="progress-bar">
-        <div class="progress-fill" style="width: 100%;"></div>
+        <div class="progress-fill progress-100"></div>
     </div>
 
     <div class="step-card">
@@ -99,10 +99,31 @@
 
             <div class="buttons">
                 <a href="/step1" class="back-btn">← Previous</a>
-                <button type="submit" class="next-btn">Generate Trip →</button>
+                <button type="button" class="next-btn" id="generate-trip-btn">Generate Trip →</button>
             </div>
 
         </form>
+    </div>
+</div>
+
+<!-- Save Options Modal -->
+<div class="modal fade" id="saveOptionsModal" tabindex="-1" aria-labelledby="saveOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="saveOptionsModalLabel">Save Your Trip Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Would you like to save your trip plan? Sign up or log in to save your itinerary and access it later.</p>
+                <p class="text-muted small">You can also continue without saving to view your itinerary now.</p>
+            </div>
+            <div class="modal-footer d-flex flex-column gap-2">
+                <button type="button" class="btn btn-primary w-100" id="login-btn">Log In</button>
+                <button type="button" class="btn btn-success w-100" id="signup-btn">Sign Up</button>
+                <button type="button" class="btn btn-outline-secondary w-100" id="continue-without-saving-btn">Continue without Saving</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -185,6 +206,36 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             existing.value = savedValue;
         }
+    });
+
+    // Save Options Modal functionality
+    const generateTripBtn = document.getElementById('generate-trip-btn');
+    const step2Form = document.getElementById('step2-form');
+    const saveOptionsModal = new bootstrap.Modal(document.getElementById('saveOptionsModal'));
+    const continueWithoutSavingBtn = document.getElementById('continue-without-saving-btn');
+    const loginBtn = document.getElementById('login-btn');
+    const signupBtn = document.getElementById('signup-btn');
+
+    // Intercept form submission
+    generateTripBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        saveOptionsModal.show();
+    });
+
+    // Continue without saving - submit form normally
+    continueWithoutSavingBtn.addEventListener('click', function() {
+        saveOptionsModal.hide();
+        step2Form.submit();
+    });
+
+    // Login button - redirect to login page
+    loginBtn.addEventListener('click', function() {
+        window.location.href = '/login';
+    });
+
+    // Sign up button - redirect to login page (same page for now, can be changed to /signup if needed)
+    signupBtn.addEventListener('click', function() {
+        window.location.href = '/login';
     });
 });
 </script>

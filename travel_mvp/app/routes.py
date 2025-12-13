@@ -97,7 +97,78 @@ def format_date_for_display(date_str):
             return date_obj.strftime("%d-%m-%Y")
     except:
         pass
-    return date_str 
+    return date_str
+
+# Shared function: Check session requirements
+def check_session_requirements(required_keys):
+    """
+    Controleert of alle vereiste session keys aanwezig zijn.
+    Returns: (is_valid, redirect_response)
+    """
+    missing_keys = [key for key in required_keys if not session.get(key)]
+    if missing_keys:
+        if 'country' in missing_keys:
+            flash("Please select a destination first.", "warning")
+        return False, redirect(url_for("main.index"))
+    return True, None
+
+# Shared function: Create Traveler object from session data
+def create_traveler_from_session():
+    """
+    Maakt een Traveler object aan op basis van session data.
+    Returns: (traveler_object, error_message)
+    """
+    try:
+        new_traveler = Traveler(
+            start_date=parse_date(session.get("start_date")),
+            end_date=parse_date(session.get("end_date")),
+            budget_range=session.get("budget_range"),
+            accommodation_type=session.get("accommodation_type"),
+            country=session.get("country"),
+            adults=session.get("adults"),
+            children=session.get("children"),
+            interest_culture=session.get("interest_culture"),
+            interest_food=session.get("interest_food"),
+            interest_wildlife=session.get("interest_wildlife"),
+            interest_history=session.get("interest_history"),
+            interest_beach=session.get("interest_beach")
+        )
+        db.session.add(new_traveler)
+        db.session.commit()
+        return new_traveler, None
+    except Exception as e:
+        return None, str(e)
+
+# Shared function: Prepare result page data
+def prepare_result_data(itinerary_list, country_from_traveler=None):
+    """
+    Bereidt de data voor die naar de result template wordt gestuurd.
+    country_from_traveler: Optioneel land uit Traveler object als fallback.
+    """
+    start_date_formatted = format_date_for_display(session.get("start_date"))
+    end_date_formatted = format_date_for_display(session.get("end_date"))
+    
+    # Bepaal de achtergrondfoto op basis van het gekozen land
+    # Probeer eerst uit session, anders uit Traveler object
+    country = (session.get("country") or country_from_traveler or "").lower()
+    country_image_map = {
+        "uganda": "/static/img/uganda.jpg",
+        "rwanda": "/static/img/rwanda.jpg",
+        "tanzania": "/static/img/tanzania.jpg"
+    }
+    background_image = country_image_map.get(country, "/static/img/tanzania.jpg")  # Default naar Tanzania
+    
+    return {
+        "start": start_date_formatted,
+        "end": end_date_formatted,
+        "budget": session.get("budget_range"),
+        "adults": session.get("adults"),
+        "children": session.get("children"),
+        "accommodation": session.get("accommodation_type"),
+        "itinerary": itinerary_list,
+        "background_image": background_image,
+        "country": country  # Doorgeven van country voor specifieke styling
+    } 
 
 # --- Algorithmic Component (De logica blijft ONGEWIJZIGD) ---
 def generate_itinerary(traveler_data):
@@ -122,15 +193,20 @@ def generate_itinerary(traveler_data):
     if duration_days <= 0:
         duration_days = 1 
     
-    # Query Activiteiten (FILTER ALLEEN OP LAND EN INTERESSES)
+    # Query Activiteiten via ORM (SQLAlchemy)
+    # ORM voordelen: directe database connectie, minder code, automatische Python object conversie
+    # BACKEND FILTERING: alleen benodigde data ophalen (security en efficiency)
+    # Alleen activiteiten voor het gekozen land worden opgehaald
     chosen_categories = [k for k, v in interests.items() if v > 0]
     
     if chosen_categories:
+        # Filter op country EN interests in de database query (ORM zet dit om naar SQL)
         activities = ActivityType.query.filter(
             ActivityType.country == traveler_data.country,
             ActivityType.interest_categ.op('&&')(chosen_categories) 
         ).all()
     else:
+        # Filter alleen op country als er geen interests zijn gekozen
         activities = ActivityType.query.filter(
             ActivityType.country == traveler_data.country,
         ).all()
@@ -178,26 +254,52 @@ def generate_itinerary(traveler_data):
             
     # Vul resterende dagen op met een standaard activiteit (Vrije dag)
     placeholder_activity = ActivityType.query.get(1)
+    placeholder_duration = (placeholder_activity.duration_days if placeholder_activity and placeholder_activity.duration_days else 1)
     
-    while len(itinerary_list) < duration_days:
-        day_num = len(itinerary_list) + 1
+    while current_day <= duration_days:
+        # Zorg dat we niet over duration_days heen gaan
+        actual_duration = min(placeholder_duration, duration_days - current_day + 1)
         
         if placeholder_activity:
-            title = f"Day {day_num} – Local Exploration"
+            title = f"Day {current_day} – Local Exploration"
             description = "Enjoy a free day to explore the local area, shop, or relax."
             placeholder_id = 1
         else:
-            title = f"Day {day_num} – Free Day"
+            title = f"Day {current_day} – Free Day"
             description = "No activity found for this day."
             placeholder_id = None
+        
+        # Maak een wrapper object dat de duration kan overschrijven zonder de database te wijzigen
+        class ActivityWrapper:
+            def __init__(self, activity, duration):
+                self._activity = activity
+                self.duration_days = duration
+                # Delegate andere attributen naar het originele object
+                if activity:
+                    self.name = activity.name
+                    self.description = activity.description
+                    self.images_url_text = getattr(activity, 'images_url_text', None)
+                else:
+                    self.name = title
+                    self.description = description
+                    self.images_url_text = None
+            
+            def __getattr__(self, name):
+                # Stuur alle andere attributen door naar het originele activity object
+                if self._activity:
+                    return getattr(self._activity, name)
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        
+        activity_obj = ActivityWrapper(placeholder_activity, actual_duration)
             
         itinerary_list.append({
-            "day": day_num,
+            "day": current_day,
             "title": title,
             "description": description,
             "activity_type_id": placeholder_id,
-            "activity": placeholder_activity
+            "activity": activity_obj
         })
+        current_day += actual_duration
 
     return itinerary_list[:duration_days] 
 
@@ -254,9 +356,9 @@ def step1_route():
         return redirect(url_for("main.step2_route"))
 
     # Toon het formulier voor GET request
-    if not session.get("country"):
-        flash("Please select a destination first.", "warning")
-        return redirect(url_for("main.index"))
+    is_valid, redirect_response = check_session_requirements(["country"])
+    if not is_valid:
+        return redirect_response
     
     # Pass saved values to template
     return render_template(
@@ -282,8 +384,9 @@ def step2_route():
 
         return redirect(url_for("main.result_route"))
         
-    if not session.get("country"):
-        return redirect(url_for("main.index"))
+    is_valid, redirect_response = check_session_requirements(["country"])
+    if not is_valid:
+        return redirect_response
 
     return render_template(
         "step2.html",
@@ -304,45 +407,29 @@ def step2_route():
 
 @main_bp.route("/result")
 def result_route():
-    # 1. Opslaan van de Traveler data in Supabase
-    if not session.get("country") or not session.get("start_date"):
-         return redirect(url_for("main.index"))
-         
-    try:
-        new_traveler = Traveler(
-            start_date=parse_date(session.get("start_date")),
-            end_date=parse_date(session.get("end_date")),
-            budget_range=session.get("budget_range"),
-            accommodation_type=session.get("accommodation_type"),
-            country=session.get("country"),
-            adults=session.get("adults"),
-            children=session.get("children"),
-            interest_culture=session.get("interest_culture"),
-            interest_food=session.get("interest_food"),
-            interest_wildlife=session.get("interest_wildlife"),
-            interest_history=session.get("interest_history"),
-            interest_beach=session.get("interest_beach")
-        )
-        db.session.add(new_traveler)
-        db.session.commit()
-        
-        traveler_id = new_traveler.traveler_id
-        
-    except Exception as e:
+    # 1. Check session requirements
+    is_valid, redirect_response = check_session_requirements(["country", "start_date"])
+    if not is_valid:
+        return redirect_response
+    
+    # 2. Opslaan van de Traveler data via ORM (SQLAlchemy)
+    # Gebruik ORM in plaats van Supabase client calls voor minder afhankelijkheid en minder code
+    new_traveler, error = create_traveler_from_session()
+    
+    if error:
         flash(f"Fout bij het opslaan van reizigersgegevens in de database.", "danger")
-        print(f"DATABASE FOUT: {e}")
-        data = {
-            "start": session.get("start_date"), "end": session.get("end_date"),
-            "budget": session.get("budget_range"), "adults": session.get("adults"),
-            "children": session.get("children"), "accommodation": session.get("accommodation_type"),
-            "itinerary": [] 
-        }
+        print(f"DATABASE FOUT: {error}")
+        # Gebruik country uit session als fallback bij error
+        data = prepare_result_data([], session.get("country"))
         return render_template("result.html", **data)
         
-    # 2. Het Algoritme draaien
+    traveler_id = new_traveler.traveler_id
+    
+    # 3. Het Algoritme draaien
     itinerary_list = generate_itinerary(new_traveler)
     
-    # 3. Opslaan van het gegenereerde reisplan in Supabase
+    # 4. Opslaan van het gegenereerde reisplan via ORM (SQLAlchemy)
+    # Gebruik ORM in plaats van Supabase client calls voor minder complexiteit
     try:
         for item in itinerary_list:
             if item.get("activity_type_id") is not None:
@@ -361,26 +448,36 @@ def result_route():
         flash(f"Fout bij het opslaan van de reisplan.", "danger")
         print(f"DATABASE FOUT BIJ ITINERARY: {e}")
 
-    # 4. Resultaten tonen
-    # Format dates to DD-MM-YYYY using shared function
-    start_date_formatted = format_date_for_display(session.get("start_date"))
-    end_date_formatted = format_date_for_display(session.get("end_date"))
-    
+    # 5. Resultaten tonen
     # Save all preferences data before clearing session using shared function
     saved_preferences = save_session_preferences()
     
-    data = {
-        "start": start_date_formatted,
-        "end": end_date_formatted,
-        "budget": session.get("budget_range"),
-        "adults": session.get("adults"),
-        "children": session.get("children"),
-        "accommodation": session.get("accommodation_type"),
-        "itinerary": itinerary_list 
-    }
+    # Prepare result data using shared function (country is nog beschikbaar in session)
+    data = prepare_result_data(itinerary_list, new_traveler.country if new_traveler else None)
     
     session.clear()
     # Restore all preferences data so they're available when clicking Preferences from result page
     restore_session_preferences(saved_preferences)
     
     return render_template("result.html", **data)
+
+
+@main_bp.route("/login", methods=["GET", "POST"])
+def login_route():
+    """
+    Login/Sign Up page. For MVP, this is a simple username entry.
+    After login, user can be redirected back to continue their trip planning.
+    """
+    if request.method == "POST":
+        username = request.form.get("username")
+        if username:
+            # For MVP: just store username in session
+            # In a full implementation, you would check/create user in database
+            session["username"] = username
+            flash(f"Welcome, {username}!", "success")
+            # Redirect to result page if user was in the middle of planning
+            if session.get("country") and session.get("start_date"):
+                return redirect(url_for("main.result_route"))
+            return redirect(url_for("main.index"))
+    
+    return render_template("login.html")

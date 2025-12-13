@@ -5,7 +5,7 @@
     
     {# De progress bar is aangepast om de geselecteerde bestemming te tonen #}
     <div class="progress-label">Step 1 of 2: Trip Details (Destination: {{ session.country or 'N/A' }})</div>
-    <div class="progress-bar"><div class="progress-fill" style="width: 50%;"></div></div>
+    <div class="progress-bar"><div class="progress-fill progress-50"></div></div>
     
     <div class="step-card">
         <div class="step-card-header">
@@ -26,7 +26,7 @@
 
             <div class="form-group">
                 <label for="end_date">End Date *</label>
-                <input type="date" id="end_date" name="end_date" value="{{ saved_end_date }}" required class="date-picker-input">
+                <input type="date" id="end_date" name="end_date" value="{{ saved_end_date }}" required class="date-picker-input" disabled>
             </div>
 
             <div class="form-group">
@@ -52,6 +52,49 @@
     </div>
 </div>
 
-{# De JavaScript is verwijderd omdat de logica nu in Flask (server-side) wordt afgehandeld. #}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const startDateInput = document.getElementById("start_date");
+    const endDateInput = document.getElementById("end_date");
+    
+    // Stel de minimale startdatum in op vandaag (kan niet in het verleden zijn)
+    const today = new Date().toISOString().split('T')[0];
+    startDateInput.min = today;
+    
+    // Als de opgeslagen startdatum in het verleden is, reset deze
+    if (startDateInput.value && startDateInput.value < today) {
+        startDateInput.value = "";
+    }
+    
+    // Functie om de einddatum in te stellen op basis van de startdatum
+    function updateEndDateConstraints() {
+        const startDate = startDateInput.value;
+        
+        if (startDate) {
+            // Enable de einddatum
+            endDateInput.disabled = false;
+            
+            // Stel de minimale datum in op de startdatum
+            endDateInput.min = startDate;
+            
+            // Als de einddatum al een waarde heeft die eerder is dan de startdatum, reset deze
+            if (endDateInput.value && endDateInput.value < startDate) {
+                endDateInput.value = "";
+            }
+        } else {
+            // Disable de einddatum als er geen startdatum is
+            endDateInput.disabled = true;
+            endDateInput.min = "";
+            endDateInput.value = "";
+        }
+    }
+    
+    // Luister naar wijzigingen in de startdatum
+    startDateInput.addEventListener("change", updateEndDateConstraints);
+    
+    // Initialiseer bij het laden van de pagina
+    updateEndDateConstraints();
+});
+</script>
 
 {% endblock %}
