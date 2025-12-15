@@ -4,6 +4,7 @@ from app import db
 from app.models import Traveler, ActivityType, Itinerary, User
 from datetime import datetime, date
 from sqlalchemy import func, text, inspect
+from app.optimizer import solve_travel_route
 import json 
 import random 
 
@@ -36,7 +37,7 @@ def get_max_budget(budget_range):
         return 450 
     elif budget_range == 'luxury':
         return 1000 
-    return 9999
+    return 9999 
 
 # Shared function: Clear session while preserving Flask-Login data
 def clear_session_preserve_login():
@@ -210,17 +211,49 @@ def generate_itinerary(traveler_data):
     # Alleen activiteiten voor het gekozen land worden opgehaald
     chosen_categories = [k for k, v in interests.items() if v > 0]
     
-    if chosen_categories:
-        # Filter op country EN interests in de database query (ORM zet dit om naar SQL)
-        activities = ActivityType.query.filter(
-            ActivityType.country == traveler_data.country,
-            ActivityType.interest_categ.op('&&')(chosen_categories) 
+    # Get number of children from traveler_data
+    num_children = traveler_data.children or 0
+    
+    # Build base query with country filter
+    base_query = ActivityType.query.filter(ActivityType.country == traveler_data.country)
+    
+    # Apply child-friendly filter if children are present
+    # IF num_children > 0: only fetch activities where is_child_friendly is TRUE
+    # ELSE: no filter (adults can do all activities)
+    # Check if is_child_friendly column exists in database
+    if num_children > 0:
+        try:
+            inspector = inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('activity_type')]
+            has_child_friendly_column = 'is_child_friendly' in columns
+            
+            if has_child_friendly_column:
+                base_query = base_query.filter(ActivityType.is_child_friendly == True)
+            else:
+                print("Warning: is_child_friendly column does not exist yet. Skipping child-friendly filter.")
+        except Exception as e:
+            print(f"Warning: Could not check for is_child_friendly column: {e}. Skipping filter.")
+    
+    # Apply interest categories filter if any are selected
+    try:
+        if chosen_categories:
+            # Filter op country, is_child_friendly (if applicable), EN interests in de database query
+            activities = base_query.filter(
+                ActivityType.interest_categ.op('&&')(chosen_categories) 
+            ).all()
+        else:
+            # Filter alleen op country (en is_child_friendly if applicable) als er geen interests zijn gekozen
+            activities = base_query.all()
+    except Exception as e:
+        # If query fails due to transaction error, rollback and retry
+        db.session.rollback()
+        db.session.expire_all()
+        if chosen_categories:
+            activities = base_query.filter(
+                ActivityType.interest_categ.op('&&')(chosen_categories) 
         ).all()
-    else:
-        # Filter alleen op country als er geen interests zijn gekozen
-        activities = ActivityType.query.filter(
-            ActivityType.country == traveler_data.country,
-        ).all()
+        else:
+            activities = base_query.all()
 
     # Priority Scoring
     scored_activities = []
@@ -244,8 +277,8 @@ def generate_itinerary(traveler_data):
     random.shuffle(scored_activities)
     scored_activities.sort(key=lambda x: x['score'], reverse=True)
     
-    # Planning genereren
-    itinerary_list = []
+    # Selecteer activiteiten die in de duur passen
+    selected_activities = []
     current_day = 1
     
     for item in scored_activities:
@@ -253,7 +286,51 @@ def generate_itinerary(traveler_data):
         activity_duration = activity.duration_days or 1
         
         if current_day <= duration_days and current_day + activity_duration - 1 <= duration_days:
+            selected_activities.append(activity)
+            current_day += activity_duration
+    
+    # Optimaliseer route met TSP (alleen voor Uganda met coördinaten)
+    if selected_activities and traveler_data.country and traveler_data.country.lower() == 'uganda':
+        try:
+            activity_ids = [a.activity_type_id for a in selected_activities]
+            # Filter Entebbe Airport (ID 25) uit de lijst - wordt automatisch toegevoegd als startpunt
+            activity_ids = [aid for aid in activity_ids if aid != 25]
             
+            if len(activity_ids) >= 1:  # Minimaal 1 activiteit nodig (Entebbe wordt toegevoegd)
+                optimized_activities = solve_travel_route(activity_ids, country=traveler_data.country)
+                # Als optimalisatie succesvol was en we activiteiten terugkrijgen, gebruik de geoptimaliseerde volgorde
+                if optimized_activities and len(optimized_activities) > 0:
+                    # Maak een mapping van activity_id naar activity object voor snelle lookup
+                    activity_map = {a.activity_type_id: a for a in selected_activities}
+                    
+                    # Reorder selected_activities volgens optimized_activities
+                    reordered_activities = []
+                    for opt_activity in optimized_activities:
+                        if opt_activity.activity_type_id in activity_map:
+                            reordered_activities.append(activity_map[opt_activity.activity_type_id])
+                    
+                    # Voeg eventuele activiteiten toe die niet geoptimaliseerd werden (zonder coördinaten)
+                    for orig_activity in selected_activities:
+                        if orig_activity.activity_type_id not in [a.activity_type_id for a in optimized_activities]:
+                            reordered_activities.append(orig_activity)
+                    
+                    if reordered_activities:
+                        selected_activities = reordered_activities
+                        print(f"Route optimized: {len(optimized_activities)} activities reordered")
+        except Exception as e:
+            # Als optimalisatie faalt, gebruik originele volgorde
+            print(f"Warning: Route optimization failed: {e}. Using original order.")
+            import traceback
+            traceback.print_exc()
+    
+    # Planning genereren met geoptimaliseerde volgorde
+    itinerary_list = []
+    current_day = 1
+    
+    for activity in selected_activities:
+        activity_duration = activity.duration_days or 1
+        
+        if current_day <= duration_days and current_day + activity_duration - 1 <= duration_days:
             itinerary_list.append({
                 "day": current_day, 
                 "title": activity.name,
@@ -264,7 +341,16 @@ def generate_itinerary(traveler_data):
             current_day += activity_duration
             
     # Vul resterende dagen op met een standaard activiteit (Vrije dag)
-    placeholder_activity = ActivityType.query.get(1)
+    try:
+        placeholder_activity = ActivityType.query.get(1)
+    except Exception as e:
+        # If query fails due to transaction error, rollback and retry
+        db.session.rollback()
+        db.session.expire_all()
+        try:
+            placeholder_activity = ActivityType.query.get(1)
+        except Exception:
+            placeholder_activity = None
     placeholder_duration = (placeholder_activity.duration_days if placeholder_activity and placeholder_activity.duration_days else 1)
     
     while current_day <= duration_days:
@@ -438,13 +524,82 @@ def result_route():
         return render_template("result.html", **data)
         
     traveler_id = new_traveler.traveler_id
+    country = new_traveler.country if new_traveler else session.get("country", "")
     
     # 3. Het Algoritme draaien
     itinerary_list = generate_itinerary(new_traveler)
     
-    # 4. Opslaan van het gegenereerde reisplan via ORM (SQLAlchemy)
-    # Gebruik ORM in plaats van Supabase client calls voor minder complexiteit
+    # 4. Optimaliseer route VOORDAT items in database worden opgeslagen (alleen voor Uganda)
+    # Verander de volgorde: Roep de optimizer aan voordat je de items voor het eerst in de database opslaat
+    if country and country.lower() == 'uganda' and itinerary_list:
+        try:
+            # Extract activity IDs from itinerary_list
+            activity_ids = [item.get("activity_type_id") for item in itinerary_list if item.get("activity_type_id") is not None]
+            # Filter Entebbe Airport (ID 25) uit de lijst - wordt automatisch toegevoegd als startpunt
+            activity_ids = [aid for aid in activity_ids if aid != 25]
+            
+            if len(activity_ids) >= 1:
+                # Roep solve_travel_route aan om de lijst optimized_activities te verkrijgen
+                print(f"Calling solve_travel_route with {len(activity_ids)} activity IDs BEFORE saving to database...")
+                optimized_activities = solve_travel_route(activity_ids, country=country)
+                print(f"solve_travel_route returned {len(optimized_activities) if optimized_activities else 0} activities")
+                
+                if optimized_activities and len(optimized_activities) > 0:
+                    print(f"Optimizer returned {len(optimized_activities)} activities in optimized order")
+                    
+                    # Update de itinerary_list variabele direct nadat de optimizer klaar is
+                    # Zorg dat de lijst die naar render_template gaat (itinerary=itinerary_list) de exacte volgorde heeft van optimized_activities
+                    
+                    # Maak een mapping van activity_id naar item in itinerary_list
+                    activity_to_item = {}
+                    for item in itinerary_list:
+                        activity_id = item.get("activity_type_id")
+                        if activity_id:
+                            activity_to_item[activity_id] = item
+                    
+                    # Rebuild itinerary_list in de exacte volgorde van optimized_activities
+                    # Zorg dat de dagnummers in de UI opnieuw worden berekend op basis van de nieuwe volgorde en duration_days
+                    new_itinerary_list = []
+                    current_day = 1
+                    
+                    # Loop door optimized_activities in de exacte volgorde
+                    for opt_activity in optimized_activities:
+                        activity_id = opt_activity.activity_type_id
+                        activity_duration = opt_activity.duration_days or 1
+                        
+                        if activity_id in activity_to_item:
+                            item = activity_to_item[activity_id].copy()
+                            # Update day op basis van nieuwe volgorde en duration_days
+                            item["day"] = current_day
+                            item["activity"] = opt_activity  # Gebruik het geoptimaliseerde activity object
+                            new_itinerary_list.append(item)
+                            current_day += activity_duration
+                    
+                    # Voeg activiteiten toe die niet geoptimaliseerd werden (zonder coördinaten)
+                    optimized_activity_ids = {a.activity_type_id for a in optimized_activities}
+                    for item in itinerary_list:
+                        activity_id = item.get("activity_type_id")
+                        if activity_id and activity_id not in optimized_activity_ids:
+                            activity = item.get("activity")
+                            activity_duration = (activity.duration_days if activity and hasattr(activity, 'duration_days') else 1)
+                            item["day"] = current_day
+                            new_itinerary_list.append(item)
+                            current_day += activity_duration
+                    
+                    # Vervang itinerary_list met de geoptimaliseerde versie
+                    itinerary_list = new_itinerary_list
+                    print(f"✓ itinerary_list updated with optimized order. Total items: {len(itinerary_list)}")
+                    print(f"✓ Day numbers recalculated based on new order and duration_days")
+                    
+        except Exception as e:
+            print(f"Warning: Route optimization failed: {e}. Using original order.")
+            import traceback
+            traceback.print_exc()
+    
+    # 5. Opslaan van het gegenereerde reisplan via ORM (SQLAlchemy)
+    # Nu opslaan met de geoptimaliseerde volgorde
     saved_itinerary_ids = []
+    db_error_occurred = False
     try:
         # Get current user_id if logged in
         user_id = current_user.user_id if current_user.is_authenticated else None
@@ -469,14 +624,94 @@ def result_route():
         
     except Exception as e:
         db.session.rollback()  # Rollback transaction on error
+        db_error_occurred = True
         error_msg = str(e)
         if "user_id" in error_msg and "does not exist" in error_msg:
             flash("Database migration required. Please run: flask db upgrade", "warning")
         else:
             flash(f"Fout bij het opslaan van de reisplan.", "danger")
         print(f"DATABASE FOUT BIJ ITINERARY: {e}")
-
-    # 5. Resultaten tonen
+        # Reset de sessie na een rollback om verdere queries mogelijk te maken
+        db.session.expire_all()
+    
+    # 6. Optionele verificatie: Update database met geoptimaliseerde volgorde (alleen als user_id onbetrouwbaar is, gebruik alleen traveler_id)
+    # Fix de database update: Gebruik alleen traveler_id om te updaten als user_id onbetrouwbaar is in de itinerary tabel
+    # OPMERKING: De optimizer is al aangeroepen in stap 4 en itinerary_list is al geüpdatet met de juiste volgorde
+    # Deze stap is alleen voor verificatie/extra zekerheid dat de database correct is
+    if not db_error_occurred and country and country.lower() == 'uganda' and itinerary_list and saved_itinerary_ids:
+        try:
+            # Check of user_id kolom betrouwbaar is
+            inspector = inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('itinerary')]
+            has_user_id_column = 'user_id' in columns
+            use_user_id_filter = has_user_id_column and current_user.is_authenticated
+            
+            if use_user_id_filter:
+                current_user_id = current_user.get_id()
+                print(f"Verifying database: Using user_id filter: user_id={current_user_id}")
+            else:
+                print(f"Verifying database: Using only traveler_id filter (user_id column missing or user not authenticated)")
+            
+            # Update database records met de geoptimaliseerde volgorde uit itinerary_list
+            # Gebruik alleen traveler_id als user_id onbetrouwbaar is
+            current_day = 1
+            updated_count = 0
+            
+            print("Verifying/updating database records with optimized order:")
+            for idx, item in enumerate(itinerary_list, 1):
+                activity_id = item.get("activity_type_id")
+                activity = item.get("activity")
+                activity_duration = (activity.duration_days if activity and hasattr(activity, 'duration_days') else 1) if activity else 1
+                
+                if activity_id:
+                    # UPDATE statement: gebruik alleen traveler_id als user_id onbetrouwbaar is
+                    if use_user_id_filter:
+                        update_sql = text("""
+                            UPDATE itinerary 
+                            SET day = :new_day 
+                            WHERE traveler_id = :traveler_id AND user_id = :user_id AND day_activity_id = :act_id
+                        """)
+                        result = db.session.execute(update_sql, {
+                            'new_day': current_day,
+                            'traveler_id': traveler_id,
+                            'user_id': int(current_user_id),
+                            'act_id': activity_id
+                        })
+                    else:
+                        # Gebruik alleen traveler_id om te updaten als user_id onbetrouwbaar is
+                        update_sql = text("""
+                            UPDATE itinerary 
+                            SET day = :new_day 
+                            WHERE traveler_id = :traveler_id AND day_activity_id = :act_id
+                        """)
+                        result = db.session.execute(update_sql, {
+                            'new_day': current_day,
+                            'traveler_id': traveler_id,
+                            'act_id': activity_id
+                        })
+                    
+                    rows_affected = result.rowcount
+                    if rows_affected > 0:
+                        updated_count += 1
+                        print(f"  [{idx}] Verified/Updated day={current_day} for activity_id={activity_id} - duration: {activity_duration} days")
+                    else:
+                        print(f"  WARNING: No rows updated for traveler_id={traveler_id}, day_activity_id={activity_id}")
+                    
+                    current_day += activity_duration
+            
+            if updated_count > 0:
+                db.session.commit()
+                print(f"✓ Database verified/updated: {updated_count} itinerary records confirmed")
+            else:
+                print(f"⚠️  No records were updated. This may indicate a problem.")
+        except Exception as e:
+            db.session.rollback()
+            db.session.expire_all()
+            print(f"Warning: Database verification/update failed: {e}. Using saved order.")
+            import traceback
+            traceback.print_exc()
+    
+    # 6. Resultaten tonen
     # Save all preferences data before clearing session using shared function
     saved_preferences = save_session_preferences()
     
@@ -576,19 +811,67 @@ def my_trips_route():
 # API Routes for editing itinerary
 @main_bp.route("/api/itinerary/<int:itinerary_id>/remove", methods=["POST"])
 def remove_itinerary_item(itinerary_id):
-    """Remove an itinerary item from the database."""
+    """Remove an itinerary item from the database and renumber remaining days."""
     try:
         itinerary_item = Itinerary.query.get_or_404(itinerary_id)
+        traveler_id = itinerary_item.traveler_id
+        removed_day = itinerary_item.day
         
-        # Optional: Check if user owns this itinerary (if logged in)
-        if current_user.is_authenticated:
+        # Get activity duration to handle multi-day activities
+        activity = itinerary_item.activity_type
+        activity_duration = activity.duration_days if activity and activity.duration_days else 1
+        
+        # Optional: Check if user owns this itinerary (if logged in and user_id column exists)
+        inspector = inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('itinerary')]
+        has_user_id_column = 'user_id' in columns
+        
+        if has_user_id_column and current_user.is_authenticated:
             if itinerary_item.user_id != current_user.user_id:
                 return jsonify({"success": False, "error": "Unauthorized"}), 403
         
+        # Delete the item
         db.session.delete(itinerary_item)
+        
+        # Renumber all remaining items: decrease day by activity_duration for items after the removed day
+        # This handles multi-day activities correctly - if we remove a 2-day activity starting on day 4,
+        # we need to decrease all days after day 4 by 2 (since days 4-5 are removed)
+        # Use raw SQL to avoid user_id column issues
+        inspector = inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('itinerary')]
+        has_user_id_column = 'user_id' in columns
+        
+        if has_user_id_column:
+            sql = text("""
+                UPDATE itinerary 
+                SET day = day - :decrease_by 
+                WHERE traveler_id = :traveler_id AND day > :removed_day
+            """)
+            db.session.execute(sql, {
+                'traveler_id': traveler_id,
+                'removed_day': removed_day,
+                'decrease_by': activity_duration
+            })
+        else:
+            sql = text("""
+                UPDATE itinerary 
+                SET day = day - :decrease_by 
+                WHERE traveler_id = :traveler_id AND day > :removed_day
+            """)
+            db.session.execute(sql, {
+                'traveler_id': traveler_id,
+                'removed_day': removed_day,
+                'decrease_by': activity_duration
+            })
+        
         db.session.commit()
         
-        return jsonify({"success": True, "message": "Activity removed successfully"})
+        return jsonify({
+            "success": True, 
+            "message": "Activity removed successfully",
+            "removed_day": removed_day,
+            "duration": activity_duration
+        })
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -596,26 +879,75 @@ def remove_itinerary_item(itinerary_id):
 
 @main_bp.route("/api/activities/<country>", methods=["GET"])
 def get_activities_by_country(country):
-    """Get all available activities for a specific country."""
+    """Get all available activities for a specific country, excluding those already in the itinerary."""
     try:
         # Normalize country name - handle both lowercase and capitalized
         # Database stores: "Uganda", "Rwanda", "Tanzania"
         country_normalized = country.capitalize()
         
-        # Query activities for this country
-        activities = ActivityType.query.filter_by(country=country_normalized).all()
+        # Get traveler_id from request parameters
+        traveler_id = request.args.get('traveler_id', type=int)
+        
+        # Get number of children from request parameters (for child-friendly filtering)
+        num_children = request.args.get('children', type=int, default=0)
+        
+        # Build base query with country filter
+        base_query = ActivityType.query.filter_by(country=country_normalized)
+        
+        # Apply child-friendly filter if children are present
+        # IF num_children > 0: only fetch activities where is_child_friendly is TRUE
+        # ELSE: no filter (adults can do all activities)
+        # Check if is_child_friendly column exists in database
+        if num_children > 0:
+            try:
+                inspector = inspect(db.engine)
+                columns = [col['name'] for col in inspector.get_columns('activity_type')]
+                has_child_friendly_column = 'is_child_friendly' in columns
+                
+                if has_child_friendly_column:
+                    base_query = base_query.filter(ActivityType.is_child_friendly == True)
+                else:
+                    print("Warning: is_child_friendly column does not exist yet. Skipping child-friendly filter.")
+            except Exception as e:
+                print(f"Warning: Could not check for is_child_friendly column: {e}. Skipping filter.")
+        
+        # Query activities for this country (with child-friendly filter if applicable)
+        try:
+            activities = base_query.all()
+        except Exception as e:
+            # If query fails due to transaction error, rollback and retry
+            db.session.rollback()
+            db.session.expire_all()
+            activities = base_query.all()
+        
+        # Get already used activity_type_ids for this traveler
+        used_activity_ids = set()
+        if traveler_id:
+            try:
+                # Use raw SQL to avoid user_id column issues
+                inspector = inspect(db.engine)
+                columns = [col['name'] for col in inspector.get_columns('itinerary')]
+                
+                sql = text("SELECT day_activity_id FROM itinerary WHERE traveler_id = :traveler_id")
+                result = db.session.execute(sql, {'traveler_id': traveler_id})
+                used_activity_ids = {row[0] for row in result if row[0] is not None}
+            except Exception as e:
+                # If query fails, continue without filtering
+                print(f"Warning: Could not filter existing activities: {e}")
         
         activities_list = []
         for activity in activities:
-            activities_list.append({
-                "activity_type_id": activity.activity_type_id,
-                "name": activity.name,
-                "description": activity.description,
-                "duration_days": activity.duration_days or 1,
-                "price_estimation": float(activity.price_estimation) if activity.price_estimation else None,
-                "images_url_text": activity.images_url_text,
-                "interest_categ": activity.interest_categ or []
-            })
+            # Only include activities that are not already in the itinerary
+            if activity.activity_type_id not in used_activity_ids:
+                activities_list.append({
+                    "activity_type_id": activity.activity_type_id,
+                    "name": activity.name,
+                    "description": activity.description,
+                    "duration_days": activity.duration_days or 1,
+                    "price_estimation": float(activity.price_estimation) if activity.price_estimation else None,
+                    "images_url_text": activity.images_url_text,
+                    "interest_categ": activity.interest_categ or []
+                })
         
         return jsonify({"success": True, "activities": activities_list})
     except Exception as e:
@@ -624,19 +956,29 @@ def get_activities_by_country(country):
 
 @main_bp.route("/api/itinerary/add", methods=["POST"])
 def add_itinerary_item():
-    """Add a new activity to an existing itinerary."""
+    """Add a new activity to an existing itinerary. Automatically determines the next available day."""
     try:
         data = request.get_json()
         
         traveler_id = data.get("traveler_id")
         activity_type_id = data.get("activity_type_id")
-        day = data.get("day")
         
-        if not all([traveler_id, activity_type_id, day]):
+        if not all([traveler_id, activity_type_id]):
             return jsonify({"success": False, "error": "Missing required fields"}), 400
         
         # Get activity details
-        activity = ActivityType.query.get_or_404(activity_type_id)
+        try:
+            activity = ActivityType.query.get_or_404(activity_type_id)
+        except Exception as e:
+            # If query fails due to transaction error, rollback and retry
+            db.session.rollback()
+            db.session.expire_all()
+            activity = ActivityType.query.get_or_404(activity_type_id)
+        
+        # Find the maximum day number for this traveler to determine next day
+        # New activities should not start on day 1, so minimum is day 2
+        max_day_result = db.session.query(func.max(Itinerary.day)).filter_by(traveler_id=traveler_id).scalar()
+        next_day = max((max_day_result or 0) + 1, 2)  # Minimum day 2 for new activities
         
         # Check if user_id column exists in itinerary table
         inspector = inspect(db.engine)
@@ -658,7 +1000,7 @@ def add_itinerary_item():
             result = db.session.execute(sql, {
                 'traveler_id': traveler_id,
                 'user_id': user_id,
-                'day': day,
+                'day': next_day,
                 'day_activity_id': activity_type_id,
                 'title': activity.name,
                 'description': activity.description
@@ -672,7 +1014,7 @@ def add_itinerary_item():
             """)
             result = db.session.execute(sql, {
                 'traveler_id': traveler_id,
-                'day': day,
+                'day': next_day,
                 'day_activity_id': activity_type_id,
                 'title': activity.name,
                 'description': activity.description
@@ -687,7 +1029,7 @@ def add_itinerary_item():
             "itinerary_id": itinerary_id,
             "activity": {
                 "itinerary_id": itinerary_id,
-                "day": day,
+                "day": next_day,
                 "title": activity.name,
                 "description": activity.description,
                 "duration_days": activity.duration_days or 1,

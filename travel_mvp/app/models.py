@@ -59,7 +59,10 @@ class ActivityType(db.Model):
     
     # Dit is de cruciale kolom voor je algoritme: [ 'Wildlife', 'Culture' ]
     # We gebruiken ARRAY(db.String) om de PostgreSQL array functionaliteit te ondersteunen.
-    interest_categ = db.Column(ARRAY(db.String)) 
+    interest_categ = db.Column(ARRAY(db.String))
+    
+    # Child-friendly filter
+    is_child_friendly = db.Column(db.Boolean, default=True)
     
     # Relatie met Itinerary items
     # lazy=True: Lazy loading - data wordt alleen geladen wanneer nodig (ORM voordeel)

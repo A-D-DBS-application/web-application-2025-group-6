@@ -46,7 +46,7 @@
         </div>
     </div>
 
-    <div class="itinerary-grid" id="itinerary-grid" data-traveler-id="{{ traveler_id }}" data-country="{{ country }}">
+    <div class="itinerary-grid" id="itinerary-grid" data-traveler-id="{{ traveler_id }}" data-country="{{ country }}" data-children="{{ children or 0 }}">
         
         {% if itinerary %}
             
@@ -72,13 +72,14 @@
                      data-day="{{ item.day }}"
                      data-price="{{ item.activity.price_estimation or 0 }}">
                     
-                    {% if item.itinerary_id %}
-                    <button class="remove-activity-btn" data-itinerary-id="{{ item.itinerary_id }}" 
+                    <button class="remove-activity-btn" 
+                            data-itinerary-id="{{ item.itinerary_id|default('') }}" 
                             data-price="{{ item.activity.price_estimation or 0 }}"
-                            title="Remove activity">
-                        <i class="icon-close">×</i>
+                            title="Remove activity"
+                            type="button"
+                            onclick="handleRemoveActivity(this); return false;">
+                        <span class="icon-close">×</span>
                     </button>
-                    {% endif %}
                     
                     <div class="card-image-wrapper">
                         {# Toon de foto van de activiteit als deze beschikbaar is, anders gebruik placeholder #}
@@ -141,12 +142,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="activity-day-select">Select Day:</label>
-                    <select id="activity-day-select" class="form-control">
-                        <option value="">Choose a day...</option>
-                    </select>
-                </div>
+                <p class="text-muted mb-3">Select an activity to add. It will be automatically added to the end of your itinerary.</p>
                 <div id="activities-list" class="activities-list">
                     <p class="text-muted">Loading activities...</p>
                 </div>
@@ -159,6 +155,135 @@
 </div>
 
 <script>
+// Make function globally available for inline onclick
+function handleRemoveActivity(button) {
+    const itineraryId = button.dataset.itineraryId;
+    const card = button.closest('.itinerary-card');
+    
+    // Check if itinerary_id exists - if not, allow visual removal only
+    if (!itineraryId || itineraryId === '' || itineraryId === 'undefined') {
+        if (confirm('This activity is not saved in the database. Remove it from the display?')) {
+            const cardPrice = parseFloat(card.dataset.price) || 0;
+            const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
+            const newTotal = Math.max(0, currentTotal - cardPrice);
+            document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+            
+            const removedDay = parseInt(card.dataset.day);
+            const isMultiDay = card.classList.contains('multi-day-card');
+            const durationText = card.querySelector('.duration-note-large');
+            const activityDuration = durationText ? parseInt(durationText.textContent.match(/\d+/)?.[0] || '1') : 1;
+            
+            card.style.transition = 'all 0.4s ease-out';
+            card.style.transform = 'translateX(-100%)';
+            card.style.opacity = '0';
+            setTimeout(() => {
+                card.remove();
+                renumberDays(removedDay, activityDuration);
+            }, 400);
+        }
+        return false;
+    }
+    
+    // Check if button is disabled
+    if (button.disabled) {
+        return false;
+    }
+    
+    if (confirm('Are you sure you want to remove this activity?')) {
+        // Get activity duration for renumbering
+        const isMultiDay = card.classList.contains('multi-day-card');
+        const durationText = card.querySelector('.duration-note-large');
+        const activityDuration = durationText ? parseInt(durationText.textContent.match(/\d+/)?.[0] || '1') : 1;
+        const removedDay = parseInt(card.dataset.day);
+        
+        // Visual feedback: disable button and show loading state
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.style.cursor = 'wait';
+        
+        // Update total price immediately
+        const cardPrice = parseFloat(card.dataset.price) || 0;
+        const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
+        const newTotal = Math.max(0, currentTotal - cardPrice);
+        document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+        
+        // Animate card removal
+        card.style.transition = 'all 0.4s ease-out';
+        card.style.transform = 'translateX(-100%)';
+        card.style.opacity = '0';
+        
+        // Call API to remove from database
+        fetch(`/api/itinerary/${itineraryId}/remove`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Renumber all days after the removed day(s) in the UI
+                renumberDays(removedDay, activityDuration);
+                
+                // Remove card from DOM after animation
+                setTimeout(() => {
+                    card.remove();
+                }, 400);
+            } else {
+                // Revert visual changes on error
+                card.style.transform = '';
+                card.style.opacity = '1';
+                button.disabled = false;
+                button.style.opacity = '';
+                button.style.cursor = '';
+                document.getElementById('total-price-value').textContent = `$${currentTotal.toFixed(2)}`;
+                alert('Error removing activity: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Revert visual changes on error
+            card.style.transform = '';
+            card.style.opacity = '1';
+            button.disabled = false;
+            button.style.opacity = '';
+            button.style.cursor = '';
+            document.getElementById('total-price-value').textContent = `$${currentTotal.toFixed(2)}`;
+            alert('Error removing activity. Please try again.');
+        });
+    }
+    
+    return false;
+}
+
+// Helper function to renumber days in UI
+function renumberDays(startFromDay = 0, decreaseBy = 1) {
+    const allCards = Array.from(document.querySelectorAll('.itinerary-card'));
+    allCards.forEach(card => {
+        const currentDay = parseInt(card.dataset.day);
+        if (currentDay > startFromDay) {
+            // Update day number
+            const newDay = currentDay - decreaseBy;
+            card.dataset.day = newDay;
+            
+            // Update day label in UI
+            const dayLabel = card.querySelector('.day-label');
+            if (dayLabel) {
+                const isMultiDay = card.classList.contains('multi-day-card');
+                const durationText = card.querySelector('.duration-note-large');
+                const duration = durationText ? parseInt(durationText.textContent.match(/\d+/)?.[0] || '1') : 1;
+                
+                if (isMultiDay && duration > 1) {
+                    const endDay = newDay + duration - 1;
+                    dayLabel.textContent = `Day ${newDay} – ${endDay}`;
+                } else {
+                    dayLabel.textContent = `Day ${newDay}`;
+                }
+            }
+        }
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     const itineraryGrid = document.getElementById('itinerary-grid');
     const travelerId = itineraryGrid.dataset.travelerId;
@@ -166,7 +291,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const addActivityBtn = document.getElementById('add-activity-btn');
     const addActivityModal = new bootstrap.Modal(document.getElementById('addActivityModal'));
     const activitiesList = document.getElementById('activities-list');
-    const daySelect = document.getElementById('activity-day-select');
     
     // Calculate and display total price
     function updateTotalPrice() {
@@ -187,50 +311,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize total price on page load
     updateTotalPrice();
     
-    // Remove activity functionality
-    document.querySelectorAll('.remove-activity-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const itineraryId = this.dataset.itineraryId;
-            const card = this.closest('.itinerary-card');
-            
-            if (confirm('Are you sure you want to remove this activity?')) {
-                fetch(`/api/itinerary/${itineraryId}/remove`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Update total price immediately (before removing card)
-                        const cardPrice = parseFloat(card.dataset.price) || 0;
-                        const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
-                        const newTotal = Math.max(0, currentTotal - cardPrice);
-                        document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
-                        
-                        // Remove card from DOM with animation
-                        card.style.transition = 'opacity 0.3s';
-                        card.style.opacity = '0';
-                        setTimeout(() => {
-                            card.remove();
-                            updateDaySelect();
-                        }, 300);
-                    } else {
-                        alert('Error removing activity: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error removing activity. Please try again.');
-                });
-            }
-        });
-    });
-    
     // Add activity button click
     addActivityBtn.addEventListener('click', function() {
-        updateDaySelect();
         loadActivities();
         addActivityModal.show();
     });
@@ -239,7 +321,8 @@ document.addEventListener("DOMContentLoaded", function() {
     function loadActivities() {
         activitiesList.innerHTML = '<p class="text-muted">Loading activities...</p>';
         
-        fetch(`/api/activities/${country}`)
+        const numChildren = parseInt(itineraryGrid.dataset.children) || 0;
+        fetch(`/api/activities/${country}?traveler_id=${travelerId}&children=${numChildren}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.activities.length > 0) {
@@ -273,16 +356,17 @@ document.addEventListener("DOMContentLoaded", function() {
                     document.querySelectorAll('.select-activity-btn').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const activityId = this.dataset.activityId;
-                            const selectedDay = daySelect.value;
-                            
-                            if (!selectedDay) {
-                                alert('Please select a day first');
-                                return;
-                            }
-                            
-                            addActivityToItinerary(activityId, selectedDay);
+                            addActivityToItinerary(activityId);
                         });
                     });
+                } else if (data.activities.length === 0) {
+                    activitiesList.innerHTML = `
+                        <div class="alert alert-info text-center" style="padding: 20px; border-radius: 10px; background: #e7f3ff; border: 1px solid #b3d9ff; margin: 20px 0;">
+                            <h5 style="color: #0b63f3; margin-bottom: 10px;">✓ All Activities Added</h5>
+                            <p style="color: #555; margin: 0;">All available activities for this country are already in your itinerary.</p>
+                            <p style="color: #777; margin-top: 10px; font-size: 0.9em;">Remove an activity first to add a different one.</p>
+                        </div>
+                    `;
                 } else {
                     activitiesList.innerHTML = '<p class="text-muted">No activities available for this country.</p>';
                 }
@@ -293,11 +377,20 @@ document.addEventListener("DOMContentLoaded", function() {
             });
     }
     
-    // Add activity to itinerary
-    function addActivityToItinerary(activityTypeId, day) {
-        // Get activity price from the selected button
+    // Add activity to itinerary (automatically adds to next available day)
+    function addActivityToItinerary(activityTypeId) {
+        // Get activity details from the selected button
         const selectBtn = document.querySelector(`.select-activity-btn[data-activity-id="${activityTypeId}"]`);
-        const activityPrice = selectBtn ? parseFloat(selectBtn.dataset.price || 0) : 0;
+        const activityCard = selectBtn.closest('.activity-option-card');
+        const activityPrice = parseFloat(selectBtn.dataset.price || 0);
+        const activityDuration = parseInt(activityCard.dataset.duration || 1);
+        const activityName = activityCard.querySelector('h4').textContent;
+        const activityDescription = activityCard.querySelector('p').textContent;
+        const activityImage = activityCard.querySelector('.activity-option-img')?.src || '';
+        
+        // Disable button during loading
+        selectBtn.disabled = true;
+        selectBtn.textContent = 'Adding...';
         
         fetch('/api/itinerary/add', {
             method: 'POST',
@@ -306,8 +399,7 @@ document.addEventListener("DOMContentLoaded", function() {
             },
             body: JSON.stringify({
                 traveler_id: travelerId,
-                activity_type_id: activityTypeId,
-                day: parseInt(day)
+                activity_type_id: activityTypeId
             })
         })
         .then(response => response.json())
@@ -319,42 +411,86 @@ document.addEventListener("DOMContentLoaded", function() {
                 const newTotal = currentTotal + newPrice;
                 document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
                 
-                // Reload page to show new activity
-                location.reload();
+                // Create new card element
+                // Use the day from API response, ensure it's at least day 2
+                let newDay = parseInt(data.activity.day) || 0;
+                if (newDay < 2) {
+                    // Calculate next day if not provided or invalid
+                    const allCards = document.querySelectorAll('.itinerary-card');
+                    let maxDay = 1;
+                    allCards.forEach(card => {
+                        const day = parseInt(card.dataset.day) || 1;
+                        const isCardMultiDay = card.classList.contains('multi-day-card');
+                        const cardDurationText = card.querySelector('.duration-note-large');
+                        const cardDuration = cardDurationText ? parseInt(cardDurationText.textContent.match(/\d+/)?.[0] || '1') : 1;
+                        const cardEndDay = isCardMultiDay ? day + cardDuration - 1 : day;
+                        maxDay = Math.max(maxDay, cardEndDay);
+                    });
+                    newDay = Math.max(maxDay + 1, 2); // Minimum day 2
+                }
+                
+                const isMultiDay = activityDuration > 1;
+                const dayDisplay = isMultiDay ? `Day ${newDay} – ${newDay + activityDuration - 1}` : `Day ${newDay}`;
+                
+                const newCard = document.createElement('div');
+                newCard.className = `itinerary-card ${isMultiDay ? 'multi-day-card' : ''}`;
+                newCard.dataset.itineraryId = data.activity.itinerary_id;
+                newCard.dataset.day = newDay;
+                newCard.dataset.price = newPrice;
+                
+                newCard.innerHTML = `
+                    <button class="remove-activity-btn" 
+                            data-itinerary-id="${data.activity.itinerary_id}" 
+                            data-price="${newPrice}"
+                            title="Remove activity"
+                            type="button"
+                            onclick="handleRemoveActivity(this); return false;">
+                        <span class="icon-close">×</span>
+                    </button>
+                    <div class="card-image-wrapper">
+                        ${activityImage ? `<img src="${activityImage}" alt="${activityName}" class="activity-img">` : 
+                          `<img src="https://via.placeholder.com/250x180?text=${encodeURIComponent(activityName)}" alt="${activityName}" class="activity-img">`}
+                    </div>
+                    <div class="card-content">
+                        <span class="day-label">${dayDisplay}</span>
+                        <h3>${activityName}</h3>
+                        <p>${activityDescription}</p>
+                        <div class="activity-meta-info">
+                            ${newPrice > 0 ? `<span class="activity-price">$${newPrice.toFixed(2)}</span>` : ''}
+                            ${isMultiDay ? `<p class="duration-note-large"><i class="icon-clock"></i> **Duration:** ${activityDuration} days</p>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                // Add card to the end of the itinerary grid
+                const itineraryGrid = document.getElementById('itinerary-grid');
+                itineraryGrid.appendChild(newCard);
+                
+                // Animate the new card in
+                newCard.style.opacity = '0';
+                newCard.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    newCard.style.transition = 'all 0.4s ease-out';
+                    newCard.style.opacity = '1';
+                    newCard.style.transform = 'translateY(0)';
+                }, 10);
+                
+                // Close modal
+                addActivityModal.hide();
             } else {
+                selectBtn.disabled = false;
+                selectBtn.textContent = 'Select';
                 alert('Error adding activity: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(error => {
             console.error('Error:', error);
+            selectBtn.disabled = false;
+            selectBtn.textContent = 'Select';
             alert('Error adding activity. Please try again.');
         });
     }
     
-    // Update day select dropdown
-    function updateDaySelect() {
-        const cards = document.querySelectorAll('.itinerary-card');
-        const days = new Set();
-        
-        cards.forEach(card => {
-            const day = parseInt(card.dataset.day);
-            const duration = card.classList.contains('multi-day-card') ? 
-                parseInt(card.querySelector('.duration-note-large')?.textContent.match(/\d+/)?.[0] || '1') : 1;
-            
-            for (let i = day; i < day + duration; i++) {
-                days.add(i);
-            }
-        });
-        
-        // Add option for day after the last day
-        const maxDay = days.size > 0 ? Math.max(...days) + 1 : 1;
-        days.add(maxDay);
-        
-        daySelect.innerHTML = '<option value="">Choose a day...</option>';
-        Array.from(days).sort((a, b) => a - b).forEach(day => {
-            daySelect.innerHTML += `<option value="${day}">Day ${day}</option>`;
-        });
-    }
 });
 </script>
 
