@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="step-container">
+    <h2 class="section-title">My Trips</h2>
+    
+    {% if trips %}
+        <div class="trips-list">
+            {% for trip in trips %}
+                <div class="trip-card">
+                    <div class="trip-card-header">
+                        <h3>Trip to {{ trip.traveler.country }}</h3>
+                        <p class="trip-date">
+                            {{ trip.traveler.start_date.strftime('%d-%m-%Y') if trip.traveler.start_date else 'N/A' }} – 
+                            {{ trip.traveler.end_date.strftime('%d-%m-%Y') if trip.traveler.end_date else 'N/A' }}
+                        </p>
+                    </div>
+                    
+                    <div class="trip-details">
+                        <p><strong>Budget:</strong> {{ trip.traveler.budget_range or 'N/A' }}</p>
+                        <p><strong>Accommodation:</strong> {{ trip.traveler.accommodation_type or 'N/A' }}</p>
+                        <p><strong>Travelers:</strong> {{ trip.traveler.adults or 1 }} Adults, {{ trip.traveler.children or 0 }} Children</p>
+                    </div>
+                    
+                    <div class="itinerary-preview">
+                        <h4>Itinerary ({{ trip.itineraries|length }} days):</h4>
+                        <ul>
+                            {% for item in trip.itineraries[:5] %}
+                                <li>Day {{ item.day }}: {{ item.title }}</li>
+                            {% endfor %}
+                            {% if trip.itineraries|length > 5 %}
+                                <li>... and {{ trip.itineraries|length - 5 }} more days</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-results-card">
+            <h3>No Trips Found</h3>
+            <p>You haven't created any trips yet. Start planning your first trip!</p>
+            <a href="{{ url_for('main.index') }}" class="primary-action-btn">Start Planning</a>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+

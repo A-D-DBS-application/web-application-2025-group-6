@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, request, session, redirect, url_for, flash
+from flask import Blueprint, render_template, request, session, redirect, url_for, flash, jsonify
+from flask_login import login_user, logout_user, login_required, current_user
 from app import db 
-from app.models import Traveler, ActivityType, Itinerary 
+from app.models import Traveler, ActivityType, Itinerary, User
 from datetime import datetime, date
-from sqlalchemy import func
+from sqlalchemy import func, text, inspect
 import json 
 import random 
 
@@ -36,6 +37,16 @@ def get_max_budget(budget_range):
     elif budget_range == 'luxury':
         return 1000 
     return 9999
+
+# Shared function: Clear session while preserving Flask-Login data
+def clear_session_preserve_login():
+    """Wist alle sessie data behalve Flask-Login authenticatie data."""
+    flask_login_keys = ['_user_id', '_fresh', '_id', '_remember_me']
+    saved_login_data = {key: session.get(key) for key in flask_login_keys if key in session}
+    session.clear()
+    # Restore Flask-Login keys
+    for key, value in saved_login_data.items():
+        session[key] = value
 
 # Shared function: Sla alle preferences data op uit sessie
 def save_session_preferences():
@@ -312,9 +323,12 @@ def index():
     # Check if this is a full reset (from "Start a new planning" button)
     reset_all = request.args.get('reset') == 'all'
     
+    # Flask-Login uses these keys in session - preserve them
+    flask_login_keys = ['_user_id', '_fresh', '_id', '_remember_me']
+    
     if reset_all:
-        # Full reset - clear everything
-        session.clear()
+        # Full reset - clear trip planning data but preserve Flask-Login session
+        clear_session_preserve_login()
     else:
         # Only reset country, keep preferences
         if 'country' in session:
@@ -430,22 +444,36 @@ def result_route():
     
     # 4. Opslaan van het gegenereerde reisplan via ORM (SQLAlchemy)
     # Gebruik ORM in plaats van Supabase client calls voor minder complexiteit
+    saved_itinerary_ids = []
     try:
+        # Get current user_id if logged in
+        user_id = current_user.user_id if current_user.is_authenticated else None
+        
         for item in itinerary_list:
             if item.get("activity_type_id") is not None:
                 new_itinerary_item = Itinerary(
                     traveler_id=traveler_id,
+                    user_id=user_id,  # Link to user if logged in
                     day=item["day"],
                     day_activity_id=item["activity_type_id"],
                     title=item["title"],
                     description=item["description"]
                 )
                 db.session.add(new_itinerary_item)
+                db.session.flush()  # Get the itinerary_id without committing
+                saved_itinerary_ids.append(new_itinerary_item.itinerary_id)
+                # Add itinerary_id to the item for template
+                item["itinerary_id"] = new_itinerary_item.itinerary_id
         
         db.session.commit()
         
     except Exception as e:
-        flash(f"Fout bij het opslaan van de reisplan.", "danger")
+        db.session.rollback()  # Rollback transaction on error
+        error_msg = str(e)
+        if "user_id" in error_msg and "does not exist" in error_msg:
+            flash("Database migration required. Please run: flask db upgrade", "warning")
+        else:
+            flash(f"Fout bij het opslaan van de reisplan.", "danger")
         print(f"DATABASE FOUT BIJ ITINERARY: {e}")
 
     # 5. Resultaten tonen
@@ -455,7 +483,13 @@ def result_route():
     # Prepare result data using shared function (country is nog beschikbaar in session)
     data = prepare_result_data(itinerary_list, new_traveler.country if new_traveler else None)
     
-    session.clear()
+    # Add traveler_id and country for editing functionality
+    data["traveler_id"] = traveler_id
+    data["country"] = new_traveler.country if new_traveler else session.get("country", "")
+    
+    # Clear trip planning data but preserve Flask-Login session
+    clear_session_preserve_login()
+    
     # Restore all preferences data so they're available when clicking Preferences from result page
     restore_session_preferences(saved_preferences)
     
@@ -465,19 +499,203 @@ def result_route():
 @main_bp.route("/login", methods=["GET", "POST"])
 def login_route():
     """
-    Login/Sign Up page. For MVP, this is a simple username entry.
-    After login, user can be redirected back to continue their trip planning.
+    Login page. For MVP, this is a simple username entry.
+    If user doesn't exist, they will be registered automatically.
     """
     if request.method == "POST":
         username = request.form.get("username")
+        contact_email = request.form.get("contact_email", "")
+        
         if username:
-            # For MVP: just store username in session
-            # In a full implementation, you would check/create user in database
-            session["username"] = username
-            flash(f"Welcome, {username}!", "success")
+            # Check if user exists
+            user = User.query.filter_by(username=username).first()
+            
+            if not user:
+                # Create new user (simple MVP registration)
+                user = User(
+                    username=username,
+                    contact_email=contact_email if contact_email else None,
+                    role="traveller"
+                )
+                db.session.add(user)
+                db.session.commit()
+                flash(f"Account created! Welcome, {username}!", "success")
+            else:
+                flash(f"Welcome back, {username}!", "success")
+            
+            # Log in the user
+            login_user(user)
+            
             # Redirect to result page if user was in the middle of planning
             if session.get("country") and session.get("start_date"):
                 return redirect(url_for("main.result_route"))
             return redirect(url_for("main.index"))
     
     return render_template("login.html")
+
+@main_bp.route("/logout")
+@login_required
+def logout_route():
+    """Log out the current user."""
+    logout_user()
+    flash("You have been logged out.", "info")
+    return redirect(url_for("main.index"))
+
+@main_bp.route("/my-trips")
+@login_required
+def my_trips_route():
+    """Display all itineraries for the current logged-in user."""
+    try:
+        # Query all itineraries for the current user using ORM
+        user_itineraries = Itinerary.query.filter_by(user_id=current_user.user_id).order_by(Itinerary.itinerary_id.desc()).all()
+    except Exception as e:
+        # If user_id column doesn't exist yet, return empty list
+        print(f"Error querying itineraries: {e}")
+        flash("Please run database migration to add user_id column to itinerary table.", "warning")
+        return render_template("my_trips.html", trips=[])
+    
+    # Group itineraries by traveler_id to show complete trips
+    trips_dict = {}
+    for itinerary in user_itineraries:
+        traveler_id = itinerary.traveler_id
+        if traveler_id not in trips_dict:
+            # Get traveler info
+            traveler = Traveler.query.get(traveler_id)
+            trips_dict[traveler_id] = {
+                'traveler': traveler,
+                'itineraries': []
+            }
+        trips_dict[traveler_id]['itineraries'].append(itinerary)
+    
+    # Convert to list for template
+    trips = list(trips_dict.values())
+    
+    return render_template("my_trips.html", trips=trips)
+
+
+# API Routes for editing itinerary
+@main_bp.route("/api/itinerary/<int:itinerary_id>/remove", methods=["POST"])
+def remove_itinerary_item(itinerary_id):
+    """Remove an itinerary item from the database."""
+    try:
+        itinerary_item = Itinerary.query.get_or_404(itinerary_id)
+        
+        # Optional: Check if user owns this itinerary (if logged in)
+        if current_user.is_authenticated:
+            if itinerary_item.user_id != current_user.user_id:
+                return jsonify({"success": False, "error": "Unauthorized"}), 403
+        
+        db.session.delete(itinerary_item)
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Activity removed successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@main_bp.route("/api/activities/<country>", methods=["GET"])
+def get_activities_by_country(country):
+    """Get all available activities for a specific country."""
+    try:
+        # Normalize country name - handle both lowercase and capitalized
+        # Database stores: "Uganda", "Rwanda", "Tanzania"
+        country_normalized = country.capitalize()
+        
+        # Query activities for this country
+        activities = ActivityType.query.filter_by(country=country_normalized).all()
+        
+        activities_list = []
+        for activity in activities:
+            activities_list.append({
+                "activity_type_id": activity.activity_type_id,
+                "name": activity.name,
+                "description": activity.description,
+                "duration_days": activity.duration_days or 1,
+                "price_estimation": float(activity.price_estimation) if activity.price_estimation else None,
+                "images_url_text": activity.images_url_text,
+                "interest_categ": activity.interest_categ or []
+            })
+        
+        return jsonify({"success": True, "activities": activities_list})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@main_bp.route("/api/itinerary/add", methods=["POST"])
+def add_itinerary_item():
+    """Add a new activity to an existing itinerary."""
+    try:
+        data = request.get_json()
+        
+        traveler_id = data.get("traveler_id")
+        activity_type_id = data.get("activity_type_id")
+        day = data.get("day")
+        
+        if not all([traveler_id, activity_type_id, day]):
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+        
+        # Get activity details
+        activity = ActivityType.query.get_or_404(activity_type_id)
+        
+        # Check if user_id column exists in itinerary table
+        inspector = inspect(db.engine)
+        columns = [col['name'] for col in inspector.get_columns('itinerary')]
+        has_user_id_column = 'user_id' in columns
+        
+        # Get user_id if logged in and column exists
+        user_id = None
+        if has_user_id_column and current_user.is_authenticated:
+            user_id = current_user.user_id
+        
+        # Use raw SQL to insert, building query dynamically based on column existence
+        if has_user_id_column:
+            sql = text("""
+                INSERT INTO itinerary (traveler_id, user_id, day, day_activity_id, title, description)
+                VALUES (:traveler_id, :user_id, :day, :day_activity_id, :title, :description)
+                RETURNING itinerary_id
+            """)
+            result = db.session.execute(sql, {
+                'traveler_id': traveler_id,
+                'user_id': user_id,
+                'day': day,
+                'day_activity_id': activity_type_id,
+                'title': activity.name,
+                'description': activity.description
+            })
+        else:
+            # Insert without user_id column
+            sql = text("""
+                INSERT INTO itinerary (traveler_id, day, day_activity_id, title, description)
+                VALUES (:traveler_id, :day, :day_activity_id, :title, :description)
+                RETURNING itinerary_id
+            """)
+            result = db.session.execute(sql, {
+                'traveler_id': traveler_id,
+                'day': day,
+                'day_activity_id': activity_type_id,
+                'title': activity.name,
+                'description': activity.description
+            })
+        
+        itinerary_id = result.scalar()
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": "Activity added successfully",
+            "itinerary_id": itinerary_id,
+            "activity": {
+                "itinerary_id": itinerary_id,
+                "day": day,
+                "title": activity.name,
+                "description": activity.description,
+                "duration_days": activity.duration_days or 1,
+                "images_url_text": activity.images_url_text,
+                "activity_type_id": activity_type_id,
+                "price_estimation": float(activity.price_estimation) if activity.price_estimation else 0
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500

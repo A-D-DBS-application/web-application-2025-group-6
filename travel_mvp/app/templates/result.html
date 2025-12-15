@@ -38,9 +38,15 @@
         
     </div>
     
-    <h2 class="section-title">Suggested Itinerary Overview</h2>
+    <div class="itinerary-header-section">
+        <h2 class="section-title">Suggested Itinerary Overview</h2>
+        <div class="total-price-display" id="total-price-display">
+            <span class="total-price-label">Total Estimated Price:</span>
+            <span class="total-price-value" id="total-price-value">$0</span>
+        </div>
+    </div>
 
-    <div class="itinerary-grid">
+    <div class="itinerary-grid" id="itinerary-grid" data-traveler-id="{{ traveler_id }}" data-country="{{ country }}">
         
         {% if itinerary %}
             
@@ -61,7 +67,18 @@
                     {% endif %}
                 {% endset %}
                 
-                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}">
+                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}" 
+                     data-itinerary-id="{{ item.itinerary_id|default('') }}" 
+                     data-day="{{ item.day }}"
+                     data-price="{{ item.activity.price_estimation or 0 }}">
+                    
+                    {% if item.itinerary_id %}
+                    <button class="remove-activity-btn" data-itinerary-id="{{ item.itinerary_id }}" 
+                            data-price="{{ item.activity.price_estimation or 0 }}"
+                            title="Remove activity">
+                        <i class="icon-close">×</i>
+                    </button>
+                    {% endif %}
                     
                     <div class="card-image-wrapper">
                         {# Toon de foto van de activiteit als deze beschikbaar is, anders gebruik placeholder #}
@@ -79,12 +96,16 @@
                         
                         <p>{{ item.description }}</p>
                         
-                        {% if activity_duration > 1 %}
-                            <p class="duration-note-large">
-                                <i class="icon-clock"></i> **Duration:** {{ activity_duration }} days
-                                {# WIJZIGING: 'Duur' vervangen door 'Duration' en 'dagen' door 'days' #}
-                            </p>
-                        {% endif %}
+                        <div class="activity-meta-info">
+                            {% if item.activity.price_estimation %}
+                                <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }}</span>
+                            {% endif %}
+                            {% if activity_duration > 1 %}
+                                <p class="duration-note-large">
+                                    <i class="icon-clock"></i> **Duration:** {{ activity_duration }} days
+                                </p>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             {% endfor %}
@@ -98,11 +119,243 @@
         
     </div>
     
+    <div class="add-activity-section">
+        <button class="add-activity-btn" id="add-activity-btn">
+            <i class="icon-plus">+</i> Add Activity
+        </button>
+    </div>
+    
     <div class="action-section">
         <a href="{{ url_for('main.index', reset='all') }}" class="primary-action-btn">Start a new planning</a>
         <p>Would you like to save or discuss this plan? Contact your partner.</p>
     </div>
 
 </div>
+
+<!-- Add Activity Modal -->
+<div class="modal fade" id="addActivityModal" tabindex="-1" aria-labelledby="addActivityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addActivityModalLabel">Add Activity</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="activity-day-select">Select Day:</label>
+                    <select id="activity-day-select" class="form-control">
+                        <option value="">Choose a day...</option>
+                    </select>
+                </div>
+                <div id="activities-list" class="activities-list">
+                    <p class="text-muted">Loading activities...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const itineraryGrid = document.getElementById('itinerary-grid');
+    const travelerId = itineraryGrid.dataset.travelerId;
+    const country = itineraryGrid.dataset.country;
+    const addActivityBtn = document.getElementById('add-activity-btn');
+    const addActivityModal = new bootstrap.Modal(document.getElementById('addActivityModal'));
+    const activitiesList = document.getElementById('activities-list');
+    const daySelect = document.getElementById('activity-day-select');
+    
+    // Calculate and display total price
+    function updateTotalPrice() {
+        const cards = document.querySelectorAll('.itinerary-card');
+        let total = 0;
+        
+        cards.forEach(card => {
+            const price = parseFloat(card.dataset.price) || 0;
+            total += price;
+        });
+        
+        const totalPriceElement = document.getElementById('total-price-value');
+        if (totalPriceElement) {
+            totalPriceElement.textContent = `$${total.toFixed(2)}`;
+        }
+    }
+    
+    // Initialize total price on page load
+    updateTotalPrice();
+    
+    // Remove activity functionality
+    document.querySelectorAll('.remove-activity-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const itineraryId = this.dataset.itineraryId;
+            const card = this.closest('.itinerary-card');
+            
+            if (confirm('Are you sure you want to remove this activity?')) {
+                fetch(`/api/itinerary/${itineraryId}/remove`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update total price immediately (before removing card)
+                        const cardPrice = parseFloat(card.dataset.price) || 0;
+                        const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
+                        const newTotal = Math.max(0, currentTotal - cardPrice);
+                        document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+                        
+                        // Remove card from DOM with animation
+                        card.style.transition = 'opacity 0.3s';
+                        card.style.opacity = '0';
+                        setTimeout(() => {
+                            card.remove();
+                            updateDaySelect();
+                        }, 300);
+                    } else {
+                        alert('Error removing activity: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error removing activity. Please try again.');
+                });
+            }
+        });
+    });
+    
+    // Add activity button click
+    addActivityBtn.addEventListener('click', function() {
+        updateDaySelect();
+        loadActivities();
+        addActivityModal.show();
+    });
+    
+    // Load available activities
+    function loadActivities() {
+        activitiesList.innerHTML = '<p class="text-muted">Loading activities...</p>';
+        
+        fetch(`/api/activities/${country}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.activities.length > 0) {
+                    let html = '<div class="activities-grid">';
+                    data.activities.forEach(activity => {
+                        const price = activity.price_estimation || 0;
+                        html += `
+                            <div class="activity-option-card" 
+                                 data-activity-id="${activity.activity_type_id}" 
+                                 data-duration="${activity.duration_days}"
+                                 data-price="${price}">
+                                ${activity.images_url_text ? `<img src="${activity.images_url_text}" alt="${activity.name}" class="activity-option-img">` : ''}
+                                <div class="activity-option-content">
+                                    <h4>${activity.name}</h4>
+                                    <p>${activity.description || ''}</p>
+                                    <div class="activity-option-meta">
+                                        <span>Duration: ${activity.duration_days} day(s)</span>
+                                        ${price > 0 ? `<span>Price: $${parseFloat(price).toFixed(2)}</span>` : '<span>Price: Free</span>'}
+                                    </div>
+                                    <button class="btn btn-primary btn-sm select-activity-btn" 
+                                            data-activity-id="${activity.activity_type_id}"
+                                            data-price="${price}">Select</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    activitiesList.innerHTML = html;
+                    
+                    // Add click handlers to select buttons
+                    document.querySelectorAll('.select-activity-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const activityId = this.dataset.activityId;
+                            const selectedDay = daySelect.value;
+                            
+                            if (!selectedDay) {
+                                alert('Please select a day first');
+                                return;
+                            }
+                            
+                            addActivityToItinerary(activityId, selectedDay);
+                        });
+                    });
+                } else {
+                    activitiesList.innerHTML = '<p class="text-muted">No activities available for this country.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                activitiesList.innerHTML = '<p class="text-danger">Error loading activities. Please try again.</p>';
+            });
+    }
+    
+    // Add activity to itinerary
+    function addActivityToItinerary(activityTypeId, day) {
+        // Get activity price from the selected button
+        const selectBtn = document.querySelector(`.select-activity-btn[data-activity-id="${activityTypeId}"]`);
+        const activityPrice = selectBtn ? parseFloat(selectBtn.dataset.price || 0) : 0;
+        
+        fetch('/api/itinerary/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                traveler_id: travelerId,
+                activity_type_id: activityTypeId,
+                day: parseInt(day)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update total price immediately
+                const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
+                const newPrice = data.activity.price_estimation || activityPrice || 0;
+                const newTotal = currentTotal + newPrice;
+                document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+                
+                // Reload page to show new activity
+                location.reload();
+            } else {
+                alert('Error adding activity: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error adding activity. Please try again.');
+        });
+    }
+    
+    // Update day select dropdown
+    function updateDaySelect() {
+        const cards = document.querySelectorAll('.itinerary-card');
+        const days = new Set();
+        
+        cards.forEach(card => {
+            const day = parseInt(card.dataset.day);
+            const duration = card.classList.contains('multi-day-card') ? 
+                parseInt(card.querySelector('.duration-note-large')?.textContent.match(/\d+/)?.[0] || '1') : 1;
+            
+            for (let i = day; i < day + duration; i++) {
+                days.add(i);
+            }
+        });
+        
+        // Add option for day after the last day
+        const maxDay = days.size > 0 ? Math.max(...days) + 1 : 1;
+        days.add(maxDay);
+        
+        daySelect.innerHTML = '<option value="">Choose a day...</option>';
+        Array.from(days).sort((a, b) => a - b).forEach(day => {
+            daySelect.innerHTML += `<option value="${day}">Day ${day}</option>`;
+        });
+    }
+});
+</script>
 
 {% endblock %}

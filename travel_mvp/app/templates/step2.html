@@ -14,7 +14,7 @@
             <h2>Personal Preferences</h2>
         </div>
 
-        <form action="/step2" method="POST" class="step-form" id="step2-form">
+        <form action="/step2" method="POST" class="step-form" id="step2-form" data-authenticated="{% if current_user.is_authenticated %}true{% else %}false{% endif %}" data-login-url="{{ url_for('main.login_route') }}">
 
             <input type="hidden" name="budget" value="{{ budget }}">
 
@@ -106,7 +106,8 @@
     </div>
 </div>
 
-<!-- Save Options Modal -->
+<!-- Save Options Modal - Only show if user is not logged in -->
+{% if not current_user.is_authenticated %}
 <div class="modal fade" id="saveOptionsModal" tabindex="-1" aria-labelledby="saveOptionsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -126,6 +127,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 {# Pass saved interests as JSON to avoid JavaScript syntax errors #}
 <script type="application/json" id="saved-interests-data">
@@ -211,32 +213,53 @@ document.addEventListener("DOMContentLoaded", function () {
     // Save Options Modal functionality
     const generateTripBtn = document.getElementById('generate-trip-btn');
     const step2Form = document.getElementById('step2-form');
-    const saveOptionsModal = new bootstrap.Modal(document.getElementById('saveOptionsModal'));
+    const saveOptionsModal = document.getElementById('saveOptionsModal');
     const continueWithoutSavingBtn = document.getElementById('continue-without-saving-btn');
     const loginBtn = document.getElementById('login-btn');
     const signupBtn = document.getElementById('signup-btn');
+    
+    // Check if user is authenticated (read from form data attribute)
+    const isAuthenticated = step2Form && step2Form.dataset.authenticated === 'true';
+    const loginUrl = step2Form ? step2Form.dataset.loginUrl : '';
 
-    // Intercept form submission
-    generateTripBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        saveOptionsModal.show();
-    });
+    // Only show modal if user is not logged in
+    if (!isAuthenticated && generateTripBtn && saveOptionsModal) {
+        const modal = new bootstrap.Modal(saveOptionsModal);
+        
+        // Intercept form submission
+        generateTripBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            modal.show();
+        });
 
-    // Continue without saving - submit form normally
-    continueWithoutSavingBtn.addEventListener('click', function() {
-        saveOptionsModal.hide();
-        step2Form.submit();
-    });
+        // Continue without saving - submit form normally
+        if (continueWithoutSavingBtn) {
+            continueWithoutSavingBtn.addEventListener('click', function() {
+                modal.hide();
+                step2Form.submit();
+            });
+        }
 
-    // Login button - redirect to login page
-    loginBtn.addEventListener('click', function() {
-        window.location.href = '/login';
-    });
+        // Login button - redirect to login page
+        if (loginBtn) {
+            loginBtn.addEventListener('click', function() {
+                window.location.href = loginUrl;
+            });
+        }
 
-    // Sign up button - redirect to login page (same page for now, can be changed to /signup if needed)
-    signupBtn.addEventListener('click', function() {
-        window.location.href = '/login';
-    });
+        // Sign up button - redirect to login page (same page for now)
+        if (signupBtn) {
+            signupBtn.addEventListener('click', function() {
+                window.location.href = loginUrl;
+            });
+        }
+    } else if (isAuthenticated && generateTripBtn) {
+        // If user is logged in, submit form directly without modal
+        generateTripBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            step2Form.submit();
+        });
+    }
 });
 </script>
 

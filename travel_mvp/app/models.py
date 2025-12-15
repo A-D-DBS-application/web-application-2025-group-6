@@ -1,6 +1,7 @@
 from datetime import datetime
 from . import db
 from sqlalchemy.dialects.postgresql import ARRAY # Nodig voor de array-kolom (PostgreSQL/Supabase database)
+from flask_login import UserMixin
 
 # =========================================================================
 # SQLAlchemy ORM Models
@@ -71,6 +72,7 @@ class Itinerary(db.Model):
     
     itinerary_id = db.Column(db.Integer, primary_key=True)
     traveler_id = db.Column(db.Integer, db.ForeignKey('traveler.traveler_id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=True)  # Link to user
     
     day = db.Column(db.Integer, nullable=False)
     day_activity_id = db.Column(db.Integer, db.ForeignKey('activity_type.activity_type_id'), nullable=False)
@@ -89,7 +91,7 @@ class Itinerary(db.Model):
 # Deze zijn nuttig voor de volledige casus, maar niet direct voor de MVP planning
 # =========================================================================
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     __tablename__ = "users"
 
     user_id = db.Column(db.Integer, primary_key=True)
@@ -98,11 +100,16 @@ class User(db.Model):
     contact_email = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Flask-Login requires get_id() method, but we use user_id instead of id
+    def get_id(self):
+        return str(self.user_id)
+
     profile = db.relationship("Profile", back_populates="user", uselist=False)
     listings = db.relationship("Listing", back_populates="host", lazy="dynamic")
     bookings = db.relationship("Booking", back_populates="traveller", lazy="dynamic")
     reviews = db.relationship("Review", back_populates="traveller", lazy="dynamic")
     notifications = db.relationship("Notification", back_populates="user", lazy="dynamic")
+    itineraries = db.relationship("Itinerary", backref="user", lazy="dynamic")
 
 class Profile(db.Model):
     __tablename__ = "profiles"

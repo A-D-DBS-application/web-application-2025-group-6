@@ -1,7 +1,7 @@
 <!-- navbar.html -->
 <div class="navbar">
     <div class="nav-left">
-        <a href="/">AfriGuide</a>
+        <a href="{{ url_for('main.index', reset='all') }}">AfriGuide</a>
     </div>
     <div class="nav-right">
         <a href="/">Home</a>
@@ -9,6 +9,13 @@
             <a href="/step1">Preferences</a>
         {% else %}
             <a href="#" class="disabled-link" title="Pick a country first">Preferences</a>
+        {% endif %}
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('main.my_trips_route') }}">My Trips</a>
+            <span style="margin-left: 16px;">{{ current_user.username }}</span>
+            <a href="{{ url_for('main.logout_route') }}" style="margin-left: 16px;">Log Out</a>
+        {% else %}
+            <a href="{{ url_for('main.login_route') }}">Log In</a>
         {% endif %}
     </div>
 </div>

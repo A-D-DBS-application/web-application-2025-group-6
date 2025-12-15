@@ -10,14 +10,20 @@
         
         <form method="post" class="step-form">
             <div class="form-group">
-                <label for="username">Username</label>
+                <label for="username">Username *</label>
                 <input type="text" id="username" name="username" placeholder="Enter your username" required class="date-picker-input">
-                <p class="small-note">No password required for this MVP</p>
             </div>
+            
+            <div class="form-group">
+                <label for="contact_email">Email (optional)</label>
+                <input type="email" id="contact_email" name="contact_email" placeholder="Enter your email" class="date-picker-input">
+            </div>
+            
+            <p class="small-note">No password required for this MVP. If username doesn't exist, a new account will be created.</p>
             
             <div class="buttons">
                 <a href="{{ url_for('main.index') }}" class="back-btn">← Back to Home</a>
-                <button type="submit" class="next-btn">Continue →</button>
+                <button type="submit" class="next-btn">Log In / Sign Up →</button>
             </div>
         </form>
     </div>
