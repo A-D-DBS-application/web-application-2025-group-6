@@ -2,4 +2,5 @@
 
 Figma UI link: https://comet-cow-17802690.figma.site
 
-Link to video recordings with external partner: 
+Link to OneDrive of video recordings with external partner: 
+https://ugentbe-my.sharepoint.com/:f:/r/personal/laurien_duplacie_ugent_be/Documents/video%20recordings%20externe%20partner?csf=1&web=1&e=dMuq1O
