@@ -13,7 +13,7 @@ from flask_login import current_user
 from app import db 
 from app.models import Traveler, ActivityType, Itinerary 
 from datetime import date
-from sqlalchemy import text, inspect
+from sqlalchemy import text
 from app.optimizer import solve_travel_route
 from app.utils import (
     parse_date,

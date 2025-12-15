@@ -15,7 +15,7 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
-    login_manager.login_view = 'main.login_route'
+    login_manager.login_view = 'auth.login_route'
     login_manager.login_message = 'Please log in to access this page.'
 
     @login_manager.user_loader
@@ -23,7 +23,15 @@ def create_app(config_class=Config):
         from app.models import User
         return User.query.get(int(user_id))
 
-    from .routes import main_bp
+    # Register all blueprints
+    from app.routes import main_bp
+    from app.routes.auth_routes import auth_bp
+    from app.routes.api_routes import api_bp
+    from app.routes.itinerary_routes import itinerary_bp
+    
     app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(api_bp)
+    app.register_blueprint(itinerary_bp)
 
     return app

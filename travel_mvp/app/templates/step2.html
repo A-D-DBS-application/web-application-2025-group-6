@@ -14,7 +14,7 @@
             <h2>Personal Preferences</h2>
         </div>
 
-        <form action="/step2" method="POST" class="step-form" id="step2-form" data-authenticated="{% if current_user.is_authenticated %}true{% else %}false{% endif %}" data-login-url="{{ url_for('main.login_route') }}">
+        <form action="/step2" method="POST" class="step-form" id="step2-form" data-authenticated="{% if current_user.is_authenticated %}true{% else %}false{% endif %}" data-login-url="{{ url_for('auth.login_route') }}">
 
             <input type="hidden" name="budget" value="{{ budget }}">
 
