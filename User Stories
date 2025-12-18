@@ -16,3 +16,8 @@ As a user I want to have a better explanation of some options, e.g. What do you 
 As a travel agency I want to see a short description of the main activity of the day and have my subactivities in the itinerary itself.
 As a travel agency I want that the users of the tool see a pop-up to make an account after they have generated their itinerary.
 
+3rd feedback
+As a user of this tool, I want the activities to be ordered logically based on location, so that I follow an efficient route with minimal travel distance.
+As a user of this tool, I want to receive my itinerary by email, so that I can easily access it later.
+As a user of this tool, I want accommodation to be included in the planning, so that I have a complete overview of my trip.
+As a travel agency, I want to have an overview of all itineraries created by users, so that I can monitor, manage and follow up on generated travel plans.
