@@ -1,7 +1,7 @@
 """
 TSP Route Optimizer voor Travel Itinerary
 Gebruikt PySCIPOpt om de kortste route tussen activiteiten te berekenen.
-Open TSP: start bij het startpunt uit de starting_points tabel, eindigt bij laatste activiteit (geen terugkeer).
+Gesloten TSP: start bij het startpunt uit de starting_points tabel, eindigt bij het startpunt (terugkeer).
 """
 
 import math
@@ -175,11 +175,8 @@ def solve_travel_route(activity_ids, country=None):
                 row.append(dist)
         distance_matrix.append(row)
     
-    # Open TSP: maak terugkeer naar start "gratis" (0 kosten)
-    # Dit voorkomt geforceerde terugkeer naar startpunt
-    # Maar zorg dat we WEL kunnen starten vanuit het startpunt (index 0)
-    for i in range(1, n):  # Van elke activiteit terug naar start (index 0)
-        distance_matrix[i][0] = 0.0
+    # Gesloten TSP: route moet eindigen bij het startpunt (index 0)
+    # De afstand van de laatste activiteit terug naar het startpunt wordt meegenomen in de optimalisatie
     
     # Debug: print afstandsmatrix voor verificatie
     print(f"\nDistance matrix size: {n}x{n}")
@@ -195,8 +192,8 @@ def solve_travel_route(activity_ids, country=None):
                 dist = distance_matrix[i][j]
                 print(f"  {valid_activities[i]['name']} -> {valid_activities[j]['name']}: {dist:.2f} km")
     
-    # Maak TSP model met PySCIPOpt
-    model = Model("OpenTSP")
+    # Maak TSP model met PySCIPOpt (gesloten TSP - terugkeer naar startpunt)
+    model = Model("ClosedTSP")
     model.hideOutput()
     
     # Variabelen: x[i][j] = 1 als we van i naar j reizen
@@ -266,7 +263,7 @@ def solve_travel_route(activity_ids, country=None):
         print(f"Error: Route length {len(route)} does not match expected {n}. Using original order.")
         return activities_orm
     
-    # Calculate total distance for verification
+    # Calculate total distance for verification (inclusief terugkeer naar startpunt)
     total_distance = 0.0
     for i in range(len(route) - 1):
         from_idx = route[i]
@@ -275,14 +272,23 @@ def solve_travel_route(activity_ids, country=None):
         total_distance += dist
         print(f"  {valid_activities[from_idx]['name']} -> {valid_activities[to_idx]['name']}: {dist:.2f} km")
     
+    # Voeg terugkeer naar startpunt toe (laatste activiteit -> startpunt)
+    if len(route) > 1:
+        last_activity_idx = route[-1]
+        return_to_start_dist = distance_matrix[last_activity_idx][0]
+        total_distance += return_to_start_dist
+        print(f"  {valid_activities[last_activity_idx]['name']} -> {valid_activities[0]['name']}: {return_to_start_dist:.2f} km (terugkeer naar startpunt)")
+    
     # Debug output
-    print(f"\nTSP Route Summary:")
+    print(f"\nTSP Route Summary (Gesloten TSP - terugkeer naar startpunt):")
     print(f"  Total nodes: {len(route)} (including start point)")
-    print(f"  Total distance: {total_distance:.2f} km")
+    print(f"  Total distance: {total_distance:.2f} km (inclusief terugkeer naar startpunt)")
     print(f"  Route indices: {route}")
     if len(route) > 1:
         route_names = [valid_activities[idx]['name'] for idx in route]
-        print(f"  Optimized Route: {' -> '.join(route_names)}")
+        # Voeg startpunt toe aan het einde om de gesloten tour te tonen
+        route_names_with_return = route_names + [valid_activities[0]['name']]
+        print(f"  Optimized Route: {' -> '.join(route_names_with_return)}")
         # Print u values for verification
         if activity_order:
             u_values_str = ", ".join([f"u[{item[0]}]={item[1]:.1f}" for item in activity_order])
