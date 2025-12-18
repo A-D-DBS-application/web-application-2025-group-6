@@ -194,14 +194,14 @@ def generate_itinerary(traveler_data):
             selected_activities.append(activity)
             current_day += activity_duration
     
-    # Optimaliseer route met TSP (alleen voor Uganda met coördinaten)
-    if selected_activities and traveler_data.country and traveler_data.country.lower() == 'uganda':
+    # Optimaliseer route met TSP (voor alle landen met startpunt en coördinaten)
+    if selected_activities and traveler_data.country:
         try:
             activity_ids = [a.activity_type_id for a in selected_activities]
-            # Filter Entebbe Airport (ID 25) uit de lijst - wordt automatisch toegevoegd als startpunt
-            activity_ids = [aid for aid in activity_ids if aid != 25]
+            # Startpunt wordt automatisch toegevoegd uit starting_points tabel
+            # Geen specifieke activiteit ID filter nodig
             
-            if len(activity_ids) >= 1:  # Minimaal 1 activiteit nodig (Entebbe wordt toegevoegd)
+            if len(activity_ids) >= 1:  # Minimaal 1 activiteit nodig
                 optimized_activities = solve_travel_route(activity_ids, country=traveler_data.country)
                 # Als optimalisatie succesvol was en we activiteiten terugkrijgen, gebruik de geoptimaliseerde volgorde
                 if optimized_activities and len(optimized_activities) > 0:
@@ -245,55 +245,52 @@ def generate_itinerary(traveler_data):
             })
             current_day += activity_duration
             
-    # Fill remaining days with placeholder activity (Free day)
-    # Use safe_db_query for automatic retry on transaction errors
-    placeholder_activity = safe_db_query(ActivityType.query.get, 1)
-    placeholder_duration = (placeholder_activity.duration_days if placeholder_activity and placeholder_activity.duration_days else 1)
-    
+    # Fill remaining days with placeholder activity (Local Exploration - geen database link)
+    # Dit is een dummy activiteit zonder database link, zodat echte activiteiten (zoals Gorilla Trekking ID 1) normaal kunnen functioneren
     while current_day <= duration_days:
-        # Zorg dat we niet over duration_days heen gaan
-        actual_duration = min(placeholder_duration, duration_days - current_day + 1)
+        # Bereken hoeveel dagen er nog over zijn
+        remaining_days = duration_days - current_day + 1
         
-        if placeholder_activity:
+        # Bepaal de dag display tekst
+        if remaining_days == 1:
+            day_display = f"Day {current_day}"
             title = f"Day {current_day} – Local Exploration"
-            description = "Enjoy a free day to explore the local area, shop, or relax."
-            placeholder_id = 1
         else:
-            title = f"Day {current_day} – Free Day"
-            description = "No activity found for this day."
-            placeholder_id = None
+            end_day = current_day + remaining_days - 1
+            day_display = f"Day {current_day} – {end_day}"
+            title = f"Day {current_day} – {end_day} – Local Exploration"
         
-        # Maak een wrapper object dat de duration kan overschrijven zonder de database te wijzigen
-        class ActivityWrapper:
-            def __init__(self, activity, duration):
-                self._activity = activity
+        description = "Enjoy free days to explore the local area, shop, or relax."
+        
+        # Maak een volledig dummy activity object zonder database link
+        # Dit voorkomt dat het wordt meegenomen in route optimalisatie of database opslag
+        class LocalExplorationActivity:
+            def __init__(self, start_day, duration):
+                self.activity_type_id = None  # Geen database link - belangrijk!
+                self.name = title
+                self.description = description
                 self.duration_days = duration
-                # Delegate andere attributen naar het originele object
-                if activity:
-                    self.name = activity.name
-                    self.description = activity.description
-                    self.images_url_text = getattr(activity, 'images_url_text', None)
-                else:
-                    self.name = title
-                    self.description = description
-                    self.images_url_text = None
-            
-            def __getattr__(self, name):
-                # Stuur alle andere attributen door naar het originele activity object
-                if self._activity:
-                    return getattr(self._activity, name)
-                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+                self.price_estimation = 0
+                self.country = traveler_data.country
+                self.images_url_text = None
+                self.interest_categ = []
+                # Geen coördinaten - dit voorkomt dat het wordt meegenomen in route optimalisatie
+                self.latitude = None
+                self.longitude = None
         
-        activity_obj = ActivityWrapper(placeholder_activity, actual_duration)
-            
+        # Maak placeholder voor de resterende dagen
+        placeholder_activity = LocalExplorationActivity(current_day, remaining_days)
+        
         itinerary_list.append({
             "day": current_day,
             "title": title,
             "description": description,
-            "activity_type_id": placeholder_id,
-            "activity": activity_obj
+            "activity_type_id": None,  # Geen database link - belangrijk!
+            "activity": placeholder_activity
         })
-        current_day += actual_duration
+        
+        # Stop de loop - we hebben alle resterende dagen opgevuld
+        break
 
     return itinerary_list[:duration_days] 
 
@@ -429,14 +426,14 @@ def result_route():
     # 3. Het Algoritme draaien
     itinerary_list = generate_itinerary(new_traveler)
     
-    # 4. Optimaliseer route VOORDAT items in database worden opgeslagen (alleen voor Uganda)
+    # 4. Optimaliseer route VOORDAT items in database worden opgeslagen (voor alle landen met startpunt)
     # Verander de volgorde: Roep de optimizer aan voordat je de items voor het eerst in de database opslaat
-    if country and country.lower() == 'uganda' and itinerary_list:
+    if country and itinerary_list:
         try:
             # Extract activity IDs from itinerary_list
             activity_ids = [item.get("activity_type_id") for item in itinerary_list if item.get("activity_type_id") is not None]
-            # Filter Entebbe Airport (ID 25) uit de lijst - wordt automatisch toegevoegd als startpunt
-            activity_ids = [aid for aid in activity_ids if aid != 25]
+            # Startpunt wordt automatisch toegevoegd uit starting_points tabel
+            # Geen specifieke activiteit ID filter nodig
             
             if len(activity_ids) >= 1:
                 # Roep solve_travel_route aan om de lijst optimized_activities te verkrijgen
@@ -538,7 +535,7 @@ def result_route():
     # Fix de database update: Gebruik alleen traveler_id om te updaten als user_id onbetrouwbaar is in de itinerary tabel
     # OPMERKING: De optimizer is al aangeroepen in stap 4 en itinerary_list is al geüpdatet met de juiste volgorde
     # Deze stap is alleen voor verificatie/extra zekerheid dat de database correct is
-    if not db_error_occurred and country and country.lower() == 'uganda' and itinerary_list and saved_itinerary_ids:
+    if not db_error_occurred and country and itinerary_list and saved_itinerary_ids:
         try:
             # Check if user_id column is reliable
             has_user_id_column = check_column_exists('itinerary', 'user_id')

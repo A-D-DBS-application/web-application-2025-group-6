@@ -235,3 +235,4 @@ def get_country_image_path(country: Optional[str]) -> str:
     }
     return country_image_map.get(country_lower, "/static/img/tanzania.jpg")
 
+

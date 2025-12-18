@@ -28,3 +28,4 @@ def downgrade():
         batch_op.drop_constraint('fk_itinerary_user', type_='foreignkey')
         batch_op.drop_column('user_id')
 
+

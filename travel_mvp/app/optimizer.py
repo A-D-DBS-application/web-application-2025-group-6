@@ -1,7 +1,7 @@
 """
 TSP Route Optimizer voor Travel Itinerary
 Gebruikt PySCIPOpt om de kortste route tussen activiteiten te berekenen.
-Open TSP: start bij Entebbe Airport, eindigt bij laatste activiteit (geen terugkeer).
+Open TSP: start bij het startpunt uit de starting_points tabel, eindigt bij laatste activiteit (geen terugkeer).
 """
 
 import math
@@ -45,7 +45,7 @@ def solve_travel_route(activity_ids, country=None):
     """
     Los het Open Traveling Salesman Problem op voor de gegeven activiteiten.
     Gebruikt MTZ (Miller-Tucker-Zemlin) formulering voor subtour eliminatie.
-    Start altijd bij Entebbe Airport (voor Uganda) en eindigt bij de laatste activiteit.
+    Start altijd bij het startpunt uit de starting_points tabel en eindigt bij de laatste activiteit.
     
     Args:
         activity_ids: Lijst van activity_type_id's die geoptimaliseerd moeten worden
@@ -58,16 +58,31 @@ def solve_travel_route(activity_ids, country=None):
         # Als er geen activiteiten zijn, retourneer lege lijst
         return []
     
+    # Normaliseer country naam: eerste letter hoofdletter, rest lowercase
+    # Dit zorgt voor consistente matching met de database
+    if country:
+        country = country.strip().capitalize()  # "rwanda" -> "Rwanda", "UGANDA" -> "Uganda"
+        print(f"DEBUG: Normalized country name to '{country}'")
+    
     # Haal startpunt op uit starting_points tabel
+    START_POINT = None
     try:
+        # Gebruik case-insensitive matching voor betere compatibiliteit
         start_sql = text("""
             SELECT country, latitude, longitude
             FROM starting_points
-            WHERE country = :country_name
+            WHERE LOWER(country) = LOWER(:country_name)
             LIMIT 1
         """)
         start_result = db.session.execute(start_sql, {'country_name': country})
         start_row = start_result.fetchone()
+        
+        # Debug logging
+        print(f"DEBUG: Looking for starting point with country='{country}'")
+        if start_row:
+            print(f"DEBUG: Found starting point: {start_row[0]} at ({start_row[1]}, {start_row[2]})")
+        else:
+            print(f"DEBUG: No starting point found for country='{country}'")
         
         if start_row and start_row[1] is not None and start_row[2] is not None:
             # Gebruik startpunt uit database
@@ -81,34 +96,9 @@ def solve_travel_route(activity_ids, country=None):
             }
             print(f"Starting point loaded from database for {country}: {START_POINT['latitude']}, {START_POINT['longitude']}")
         else:
-            # Fallback: gebruik Entebbe coördinaten voor Uganda
-            if country and country.lower() == 'uganda':
-                START_POINT = {
-                    'activity_type_id': None,
-                    'name': 'Entebbe International Airport',
-                    'description': 'Starting point: International airport',
-                    'latitude': 0.063004056529198,  # Uit starting_points tabel
-                    'longitude': 32.4460903472213,  # Uit starting_points tabel
-                    'is_start': True
-                }
-            else:
-                # Voor andere landen, gebruik eerste activiteit als startpunt
-                START_POINT = None
-            print(f"Warning: Starting point not found in database for {country}, using fallback")
+            print(f"Warning: Starting point not found in database for {country}. Route optimization will be skipped.")
     except Exception as e:
-        print(f"Error fetching starting point: {e}")
-        # Fallback: gebruik Entebbe coördinaten voor Uganda
-        if country and country.lower() == 'uganda':
-            START_POINT = {
-                'activity_type_id': None,
-                'name': 'Entebbe International Airport',
-                'description': 'Starting point: International airport',
-                'latitude': 0.063004056529198,
-                'longitude': 32.4460903472213,
-                'is_start': True
-            }
-        else:
-            START_POINT = None
+        print(f"Error fetching starting point: {e}. Route optimization will be skipped.")
     
     # Haal activiteiten op met coördinaten
     # Gebruik SQLAlchemy's .in_() voor veiligere query
@@ -135,7 +125,7 @@ def solve_travel_route(activity_ids, country=None):
         return activities
     
     # Filter activiteiten met geldige coördinaten
-    if country and country.lower() == 'uganda' and START_POINT:
+    if START_POINT:
         valid_activities = [START_POINT.copy()]  # Start met startpunt op index 0
         
         # Voeg alle activiteiten met coördinaten toe
@@ -158,10 +148,11 @@ def solve_travel_route(activity_ids, country=None):
                     'is_start': False
                 })
     else:
-        # Voor andere landen of als er geen startpunt is, gebruik originele volgorde (geen optimalisatie)
+        # Als er geen startpunt is, gebruik originele volgorde (geen optimalisatie)
+        print(f"No starting point found for {country}. Using original activity order.")
         return activities_orm
     
-    # Als er minder dan 2 activiteiten zijn (alleen Entebbe), retourneer originele volgorde
+    # Als er minder dan 2 activiteiten zijn (alleen startpunt), retourneer originele volgorde
     if len(valid_activities) < 2:
         print("Warning: Not enough activities with coordinates for optimization. Using original order.")
         return activities_orm
@@ -185,8 +176,8 @@ def solve_travel_route(activity_ids, country=None):
         distance_matrix.append(row)
     
     # Open TSP: maak terugkeer naar start "gratis" (0 kosten)
-    # Dit voorkomt geforceerde terugkeer naar Entebbe
-    # Maar zorg dat we WEL kunnen starten vanuit Entebbe (index 0)
+    # Dit voorkomt geforceerde terugkeer naar startpunt
+    # Maar zorg dat we WEL kunnen starten vanuit het startpunt (index 0)
     for i in range(1, n):  # Van elke activiteit terug naar start (index 0)
         distance_matrix[i][0] = 0.0
     
@@ -297,12 +288,12 @@ def solve_travel_route(activity_ids, country=None):
             u_values_str = ", ".join([f"u[{item[0]}]={item[1]:.1f}" for item in activity_order])
             print(f"  MTZ u values (sorted): {u_values_str}")
     
-    # Retourneer activiteiten in optimale volgorde (zonder Entebbe Airport in de lijst)
+    # Retourneer activiteiten in optimale volgorde (zonder startpunt in de lijst)
     optimized_activities = []
     for idx in route:
         activity_data = valid_activities[idx]
         
-        # Skip Entebbe Airport (is_start = True) - alleen activiteiten toevoegen
+        # Skip startpunt (is_start = True) - alleen activiteiten toevoegen
         if activity_data.get('is_start', False):
             continue
         

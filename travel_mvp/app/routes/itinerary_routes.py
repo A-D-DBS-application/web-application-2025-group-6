@@ -52,3 +52,4 @@ def my_trips_route():
     
     return render_template("my_trips.html", trips=trips)
 
+
