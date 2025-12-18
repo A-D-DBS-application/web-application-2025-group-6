@@ -144,11 +144,10 @@ def add_itinerary_item():
         max_day_result = db.session.query(func.max(Itinerary.day)).filter_by(traveler_id=traveler_id).scalar()
         next_day = max((max_day_result or 0) + 1, 2)  # Minimum day 2 for new activities
 
-        # Check if user_id column exists and get user_id if logged in
+        # Don't set user_id automatically - only save when user clicks "Save Trip" button
+        # This keeps consistency with result_route behavior
         has_user_id_column = check_column_exists('itinerary', 'user_id')
-        user_id = None
-        if has_user_id_column and current_user.is_authenticated:
-            user_id = current_user.user_id
+        user_id = None  # Will be set when user clicks "Save Trip"
 
         # Build SQL query dynamically based on column existence
         if has_user_id_column:

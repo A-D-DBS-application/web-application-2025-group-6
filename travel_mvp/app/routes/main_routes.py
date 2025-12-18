@@ -498,14 +498,15 @@ def result_route():
     saved_itinerary_ids = []
     db_error_occurred = False
     try:
-        # Get current user_id if logged in
-        user_id = current_user.user_id if current_user.is_authenticated else None
+        # Don't set user_id automatically - only save when user clicks "Save Trip" button
+        # This allows users to generate trips without being logged in, and save them later
+        user_id = None
         
         for item in itinerary_list:
             if item.get("activity_type_id") is not None:
                 new_itinerary_item = Itinerary(
                     traveler_id=traveler_id,
-                    user_id=user_id,  # Link to user if logged in
+                    user_id=None,  # Will be set when user clicks "Save Trip"
                     day=item["day"],
                     day_activity_id=item["activity_type_id"],
                     title=item["title"],

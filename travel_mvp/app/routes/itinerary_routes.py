@@ -151,3 +151,54 @@ def trip_detail_route(traveler_id):
         return redirect(url_for("itinerary.my_trips_route"))
 
 
+@itinerary_bp.route("/trip/<int:traveler_id>/delete", methods=["POST"])
+@login_required
+def delete_trip_route(traveler_id):
+    """
+    Delete a saved trip by removing user_id from all itinerary items.
+    
+    This doesn't delete the itinerary items themselves, just unlinks them from the user.
+    """
+    try:
+        # Get all itinerary items for this traveler and user
+        itinerary_items = safe_db_query(
+            lambda: Itinerary.query.filter_by(
+                traveler_id=traveler_id,
+                user_id=current_user.user_id
+            ).all()
+        )
+        
+        if not itinerary_items:
+            flash("Trip not found or you don't have permission to delete it.", "warning")
+            return redirect(url_for("itinerary.my_trips_route"))
+        
+        # Remove user_id from all itinerary items (set to NULL)
+        from sqlalchemy import text
+        update_sql = text("""
+            UPDATE itinerary 
+            SET user_id = NULL 
+            WHERE traveler_id = :traveler_id AND user_id = :user_id
+        """)
+        result = db.session.execute(update_sql, {
+            'traveler_id': traveler_id,
+            'user_id': current_user.user_id
+        })
+        
+        rows_updated = result.rowcount
+        db.session.commit()
+        
+        if rows_updated > 0:
+            flash(f"Trip deleted successfully! {rows_updated} items removed from your account.", "success")
+        else:
+            flash("No items were deleted.", "warning")
+        
+        return redirect(url_for("itinerary.my_trips_route"))
+        
+    except Exception as e:
+        db.session.rollback()
+        db.session.expire_all()
+        print(f"Error deleting trip: {e}")
+        flash("Error deleting trip. Please try again.", "danger")
+        return redirect(url_for("itinerary.my_trips_route"))
+
+
