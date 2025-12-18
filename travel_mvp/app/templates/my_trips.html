@@ -2,44 +2,84 @@
 {% block content %}
 
 <div class="step-container">
-    <h2 class="section-title">My Trips</h2>
+    <div class="my-trips-header">
+        <h2 class="section-title">My Saved Trips</h2>
+        <p class="subtitle">View and manage your travel itineraries</p>
+    </div>
     
     {% if trips %}
-        <div class="trips-list">
+        <div class="trips-grid">
             {% for trip in trips %}
-                <div class="trip-card">
-                    <div class="trip-card-header">
-                        <h3>Trip to {{ trip.traveler.country }}</h3>
-                        <p class="trip-date">
-                            {{ trip.traveler.start_date.strftime('%d-%m-%Y') if trip.traveler.start_date else 'N/A' }} – 
-                            {{ trip.traveler.end_date.strftime('%d-%m-%Y') if trip.traveler.end_date else 'N/A' }}
+                <div class="trip-card-modern">
+                    <div class="trip-card-image">
+                        {% set country_lower = (trip.traveler.country or '').lower() %}
+                        {% if country_lower == 'uganda' %}
+                            <img src="{{ url_for('static', filename='img/Uganda.jpg') }}" alt="{{ trip.traveler.country }}">
+                        {% elif country_lower == 'rwanda' %}
+                            <img src="{{ url_for('static', filename='img/Rwanda.jpg') }}" alt="{{ trip.traveler.country }}">
+                        {% elif country_lower == 'tanzania' %}
+                            <img src="{{ url_for('static', filename='img/Tanzania.jpg') }}" alt="{{ trip.traveler.country }}">
+                        {% else %}
+                            <div class="country-placeholder">{{ trip.traveler.country or 'Trip' }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="trip-card-content">
+                        <div class="trip-card-header-modern">
+                            <h3>{{ trip.traveler.country or 'Unknown Destination' }}</h3>
+                            <span class="trip-badge">{{ trip.itineraries|length }} Days</span>
+                        </div>
+                        
+                        <p class="trip-date-modern">
+                            <i class="icon-calendar">📅</i>
+                            {{ trip.traveler.start_date.strftime('%d %b %Y') if trip.traveler.start_date else 'N/A' }} – 
+                            {{ trip.traveler.end_date.strftime('%d %b %Y') if trip.traveler.end_date else 'N/A' }}
                         </p>
-                    </div>
-                    
-                    <div class="trip-details">
-                        <p><strong>Budget:</strong> {{ trip.traveler.budget_range or 'N/A' }}</p>
-                        <p><strong>Accommodation:</strong> {{ trip.traveler.accommodation_type or 'N/A' }}</p>
-                        <p><strong>Travelers:</strong> {{ trip.traveler.adults or 1 }} Adults, {{ trip.traveler.children or 0 }} Children</p>
-                    </div>
-                    
-                    <div class="itinerary-preview">
-                        <h4>Itinerary ({{ trip.itineraries|length }} days):</h4>
-                        <ul>
-                            {% for item in trip.itineraries[:5] %}
-                                <li>Day {{ item.day }}: {{ item.title }}</li>
-                            {% endfor %}
-                            {% if trip.itineraries|length > 5 %}
-                                <li>... and {{ trip.itineraries|length - 5 }} more days</li>
-                            {% endif %}
-                        </ul>
+                        
+                        <div class="trip-details-modern">
+                            <div class="detail-item">
+                                <span class="detail-label">Budget:</span>
+                                <span class="detail-value">{{ trip.traveler.budget_range or 'N/A' }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Travelers:</span>
+                                <span class="detail-value">{{ trip.traveler.adults or 1 }} Adults{% if trip.traveler.children and trip.traveler.children > 0 %}, {{ trip.traveler.children }} Children{% endif %}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Accommodation:</span>
+                                <span class="detail-value">{{ trip.traveler.accommodation_type or 'N/A' }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="itinerary-preview-modern">
+                            <h4>Quick Preview:</h4>
+                            <div class="preview-items">
+                                {% for item in trip.itineraries[:3] %}
+                                    <div class="preview-item">
+                                        <span class="preview-day">Day {{ item.day }}</span>
+                                        <span class="preview-title">{{ item.title }}</span>
+                                    </div>
+                                {% endfor %}
+                                {% if trip.itineraries|length > 3 %}
+                                    <div class="preview-more">+ {{ trip.itineraries|length - 3 }} more activities</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="trip-card-actions">
+                            <a href="{{ url_for('itinerary.trip_detail_route', traveler_id=trip.traveler.traveler_id) }}" class="view-trip-btn">
+                                <i class="icon-eye">👁️</i> View Full Itinerary
+                            </a>
+                        </div>
                     </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <div class="no-results-card">
-            <h3>No Trips Found</h3>
-            <p>You haven't created any trips yet. Start planning your first trip!</p>
+        <div class="no-results-card-modern">
+            <div class="no-results-icon">✈️</div>
+            <h3>No Trips Yet</h3>
+            <p>You haven't saved any trips yet. Start planning your first adventure!</p>
             <a href="{{ url_for('main.index') }}" class="primary-action-btn">Start Planning</a>
         </div>
     {% endif %}

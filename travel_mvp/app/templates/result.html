@@ -127,7 +127,15 @@
     </div>
     
     <div class="action-section">
-        <a href="{{ url_for('main.index', reset='all') }}" class="primary-action-btn">Start a new planning</a>
+        {% if current_user.is_authenticated %}
+            <button id="save-trip-btn" class="save-trip-btn primary-action-btn" data-traveler-id="{{ traveler_id }}">
+                <i class="icon-save">💾</i> Save Trip
+            </button>
+            <div id="save-trip-message" class="save-message" style="display: none;"></div>
+        {% else %}
+            <a href="{{ url_for('auth.login_route') }}" class="primary-action-btn">Login to Save Trip</a>
+        {% endif %}
+        <a href="{{ url_for('main.index', reset='all') }}" class="secondary-action-btn">Start a new planning</a>
         <p>Would you like to save or discuss this plan? Contact your partner.</p>
     </div>
 
@@ -488,6 +496,94 @@ document.addEventListener("DOMContentLoaded", function() {
             selectBtn.disabled = false;
             selectBtn.textContent = 'Select';
             alert('Error adding activity. Please try again.');
+        });
+    }
+    
+    // Save Trip functionality
+    const saveTripBtn = document.getElementById('save-trip-btn');
+    const saveTripMessage = document.getElementById('save-trip-message');
+    
+    if (saveTripBtn) {
+        saveTripBtn.addEventListener('click', function() {
+            const travelerId = this.dataset.travelerId;
+            
+            if (!travelerId || travelerId === 'None' || travelerId === '') {
+                alert('Error: Traveler ID not found. Please generate a new trip first.');
+                console.error('Traveler ID is missing:', travelerId);
+                return;
+            }
+            
+            console.log('Attempting to save trip with traveler_id:', travelerId);
+            
+            // Disable button and show loading state
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="icon-save">💾</i> Saving...';
+            
+            // Call API to save trip
+            fetch('/api/itinerary/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    traveler_id: parseInt(travelerId)
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('HTTP error:', response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Save trip response:', data);
+                if (data.success) {
+                    // Show success message
+                    saveTripMessage.textContent = data.message || 'Trip saved successfully!';
+                    saveTripMessage.className = 'save-message success';
+                    saveTripMessage.style.display = 'block';
+                    
+                    // Update button to show saved state
+                    this.innerHTML = '<i class="icon-save">✓</i> Trip Saved';
+                    this.classList.add('saved');
+                    this.disabled = true;
+                    
+                    // Hide message after 5 seconds
+                    setTimeout(() => {
+                        saveTripMessage.style.display = 'none';
+                    }, 5000);
+                } else {
+                    // Show error message
+                    saveTripMessage.textContent = data.error || 'Error saving trip. Please try again.';
+                    saveTripMessage.className = 'save-message error';
+                    saveTripMessage.style.display = 'block';
+                    
+                    // Re-enable button
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                    
+                    // Hide message after 5 seconds
+                    setTimeout(() => {
+                        saveTripMessage.style.display = 'none';
+                    }, 5000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                saveTripMessage.textContent = 'Error saving trip. Please try again.';
+                saveTripMessage.className = 'save-message error';
+                saveTripMessage.style.display = 'block';
+                
+                // Re-enable button
+                this.disabled = false;
+                this.innerHTML = originalText;
+                
+                // Hide message after 5 seconds
+                setTimeout(() => {
+                    saveTripMessage.style.display = 'none';
+                }, 5000);
+            });
         });
     }
     

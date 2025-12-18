@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="trip-header {% if country == 'uganda' %}trip-header-uganda{% endif %}" style="background-image: url('{{ background_image }}');">
+    <div class="trip-header-overlay">
+        <h1>Your Saved Trip</h1>
+        <p>Complete itinerary with all activities and details.</p>
+    </div>
+</div>
+
+<div class="step-container">
+
+    <div class="trip-summary-container">
+        <div class="trip-summary-grid">
+            <div class="summary-box detail-box">
+                <i class="icon-calendar">📅</i>
+                <h3>Travel Dates</h3>
+                <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
+            </div>
+
+            <div class="summary-box detail-box">
+                <i class="icon-users">👥</i>
+                <h3>Travellers</h3>
+                <p>{{ adults or "1" }} Adults | {{ children or "0" }} Children</p>
+            </div>
+
+            <div class="summary-box detail-box">
+                <i class="icon-tag">💰</i>
+                <h3>Budget & Style</h3>
+                <p>Budget: {{ budget or "N/A" }}</p>
+                <p>Stay: {{ accommodation or "N/A" }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="itinerary-header-section">
+        <h2 class="section-title">Complete Itinerary</h2>
+        {% if total_price and total_price > 0 %}
+        <div class="total-price-display">
+            <span class="total-price-label">Total Estimated Price:</span>
+            <span class="total-price-value">${{ "%.2f"|format(total_price) }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="itinerary-grid">
+        {% if itinerary %}
+            {% for item in itinerary %}
+                {% set activity_duration = item.activity.duration_days or 1 %}
+                {% set start_day = item.day %}
+                {% set end_day = start_day + activity_duration - 1 %}
+                
+                {% set day_display %}
+                    {% if activity_duration > 1 %}
+                        Day {{ start_day }} – {{ end_day }}
+                    {% else %}
+                        Day {{ start_day }}
+                    {% endif %}
+                {% endset %}
+                
+                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}">
+                    <div class="card-image-wrapper">
+                        {% if item.activity and item.activity.images_url_text %}
+                            <img src="{{ item.activity.images_url_text }}" alt="{{ item.title }}" class="activity-img">
+                        {% else %}
+                            <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-content">
+                        <span class="day-label">{{ day_display }}</span>
+                        
+                        <h3>{{ item.title }}</h3>
+                        
+                        <p>{{ item.description }}</p>
+                        
+                        <div class="activity-meta-info">
+                            {% if item.activity.price_estimation and item.activity.price_estimation > 0 %}
+                                <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }}</span>
+                            {% endif %}
+                            {% if activity_duration > 1 %}
+                                <p class="duration-note-large">
+                                    <i class="icon-clock">⏱️</i> Duration: {{ activity_duration }} days
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results-card">
+                <h3>No Itinerary Found</h3>
+                <p>This trip doesn't have any activities yet.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="action-section">
+        <a href="{{ url_for('itinerary.my_trips_route') }}" class="secondary-action-btn">← Back to My Trips</a>
+        <a href="{{ url_for('main.index', reset='all') }}" class="primary-action-btn">Plan New Trip</a>
+    </div>
+
+</div>
+
+{% endblock %}
