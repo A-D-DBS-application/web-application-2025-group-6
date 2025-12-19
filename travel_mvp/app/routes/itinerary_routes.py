@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
 from app import db
 from app.models import Itinerary, Traveler
-from app.utils import safe_db_query
+from app.utils import safe_db_query, format_accommodation_type, format_budget_range
 
 itinerary_bp = Blueprint("itinerary", __name__)
 
@@ -132,10 +132,10 @@ def trip_detail_route(traveler_id):
         data = {
             "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
             "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
-            "budget": traveler.budget_range or "N/A",
+            "budget": format_budget_range(traveler.budget_range or "N/A"),
             "adults": traveler.adults or 1,
             "children": traveler.children or 0,
-            "accommodation": traveler.accommodation_type or "N/A",
+            "accommodation": format_accommodation_type(traveler.accommodation_type or "N/A"),
             "itinerary": itinerary_list,
             "background_image": background_image,
             "country": country,

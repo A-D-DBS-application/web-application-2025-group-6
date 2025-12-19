@@ -86,13 +86,13 @@
                     </option>
 
                     <option value="resort"
-                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% elif saved_accommodation == 'resort' %}selected{% endif %}>
-                        Resort {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
+                        {% if budget in ['low', 'medium', 'high'] %} disabled class="disabled-option" {% elif saved_accommodation == 'resort' %}selected{% endif %}>
+                        Resort {% if budget in ['low', 'medium', 'high'] %}(Not available for your budget){% endif %}
                     </option>
 
                     <option value="boutique"
-                        {% if budget in ['low', 'medium'] %} disabled class="disabled-option" {% elif saved_accommodation == 'boutique' %}selected{% endif %}>
-                        Boutique Hotel {% if budget in ['low', 'medium'] %}(Not available for your budget){% endif %}
+                        {% if budget in ['low', 'medium', 'high'] %} disabled class="disabled-option" {% elif saved_accommodation == 'boutique' %}selected{% endif %}>
+                        Boutique Hotel {% if budget in ['low', 'medium', 'high'] %}(Not available for your budget){% endif %}
                     </option>
                 </select>
             </div>

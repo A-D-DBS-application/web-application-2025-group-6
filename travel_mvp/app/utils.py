@@ -236,3 +236,64 @@ def get_country_image_path(country: Optional[str]) -> str:
     return country_image_map.get(country_lower, "/static/img/tanzania.jpg")
 
 
+def format_accommodation_type(accommodation_type: Optional[str]) -> str:
+    """
+    Format accommodation type value to a user-friendly display name.
+    
+    Converts database values like 'hotel5', 'hotel4', 'hotel3' to 
+    readable format like 'Hotel (5 Star)', 'Hotel (4 Star)', 'Hotel (3 Star)'.
+    
+    Args:
+        accommodation_type: Raw accommodation type value (e.g., 'hotel5', 'airbnb')
+        
+    Returns:
+        Formatted display name (e.g., 'Hotel (5 Star)', 'Apartment / Airbnb')
+    """
+    if not accommodation_type:
+        return "N/A"
+    
+    accommodation_map = {
+        'hostel': 'Hostel',
+        'airbnb': 'Apartment / Airbnb',
+        'hotel3': 'Hotel (3 Star)',
+        'hotel4': 'Hotel (4 Star)',
+        'hotel5': 'Hotel (5 Star)',
+        'resort': 'Resort',
+        'boutique': 'Boutique Hotel'
+    }
+    
+    return accommodation_map.get(accommodation_type.lower(), accommodation_type)
+
+
+def format_budget_range(budget_range: Optional[str]) -> str:
+    """
+    Format budget range value to a user-friendly display name.
+    
+    Converts database values like 'low', 'medium', 'high', 'luxury' to 
+    readable format like 'Budget', 'Moderate', 'Comfort', 'Luxury'.
+    
+    Handles both old and new database values for backward compatibility.
+    
+    Args:
+        budget_range: Raw budget range value (e.g., 'low', 'high', 'luxury')
+        
+    Returns:
+        Formatted display name (e.g., 'Budget', 'Comfort', 'Luxury')
+    """
+    if not budget_range:
+        return "N/A"
+    
+    budget_map = {
+        'low': 'Budget',
+        'medium': 'Moderate',
+        'high': 'Comfort',
+        'luxury': 'Luxury'
+    }
+    
+    # Convert to lowercase for case-insensitive matching
+    budget_lower = budget_range.lower()
+    
+    # Return formatted name if found, otherwise return original with first letter capitalized
+    return budget_map.get(budget_lower, budget_range.capitalize())
+
+

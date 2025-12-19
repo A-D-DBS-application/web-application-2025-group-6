@@ -23,7 +23,9 @@ from app.utils import (
     restore_session_preferences,
     get_country_image_path,
     check_column_exists,
-    safe_db_query
+    safe_db_query,
+    format_accommodation_type,
+    format_budget_range
 )
 import random 
 
@@ -97,10 +99,10 @@ def prepare_result_data(itinerary_list, country_from_traveler=None):
     return {
         "start": start_date_formatted,
         "end": end_date_formatted,
-        "budget": session.get("budget_range"),
+        "budget": format_budget_range(session.get("budget_range")),
         "adults": session.get("adults"),
         "children": session.get("children"),
-        "accommodation": session.get("accommodation_type"),
+        "accommodation": format_accommodation_type(session.get("accommodation_type")),
         "itinerary": itinerary_list,
         "background_image": background_image,
         "country": country
@@ -798,10 +800,10 @@ def result_from_traveler_route(traveler_id):
         data = {
             "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
             "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
-            "budget": traveler.budget_range or "N/A",
+            "budget": format_budget_range(traveler.budget_range or "N/A"),
             "adults": traveler.adults or 1,
             "children": traveler.children or 0,
-            "accommodation": traveler.accommodation_type or "N/A",
+            "accommodation": format_accommodation_type(traveler.accommodation_type or "N/A"),
             "itinerary": itinerary_list,
             "background_image": get_country_image_path(country),
             "country": country,

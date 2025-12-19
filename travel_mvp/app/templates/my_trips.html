@@ -39,7 +39,7 @@
                         <div class="trip-details-modern">
                             <div class="detail-item">
                                 <span class="detail-label">Budget:</span>
-                                <span class="detail-value">{{ trip.traveler.budget_range or 'N/A' }}</span>
+                                <span class="detail-value">{{ (trip.traveler.budget_range or 'N/A')|format_budget }}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Travelers:</span>
@@ -47,7 +47,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Accommodation:</span>
-                                <span class="detail-value">{{ trip.traveler.accommodation_type or 'N/A' }}</span>
+                                <span class="detail-value">{{ (trip.traveler.accommodation_type or 'N/A')|format_accommodation }}</span>
                             </div>
                         </div>
                         
