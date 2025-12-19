@@ -295,6 +295,18 @@ a {
     background: #eee;
     font-size: 20px;
     cursor: pointer;
+    color: #2E5239; /* Deep Forest Green */
+    transition: background-color 0.2s;
+}
+
+.counter-btn:hover {
+    background: #2E5239; /* Deep Forest Green */
+    color: white;
+}
+
+.counter-btn:active {
+    background: #1e3d2a; /* Darker green */
+    color: white;
 }
 
 /* INTERESTS */
@@ -328,6 +340,13 @@ a {
     background: #eee;
     font-size: 14px;
     cursor: pointer;
+    color: #2E5239; /* Deep Forest Green for inactive state */
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.interest-btn:hover {
+    background: #f0f7f3; /* Light green tint on hover */
+    color: #2E5239;
 }
 
 .interest-btn.active {
@@ -717,7 +736,7 @@ a {
     display: block;
     font-weight: 600;
     margin-bottom: 5px;
-    color: #333;
+    color: #2E5239; /* Deep Forest Green */
 }
 
 .date-picker-input,
@@ -732,12 +751,59 @@ a {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
     font-size: 16px;
     transition: border-color 0.3s;
+    color: #334155; /* slate-700 for text */
 }
 
 .date-picker-input:focus,
 .step-form select:focus {
     border-color: #2E5239; /* Deep Forest Green */
     outline: none;
+    box-shadow: 0 0 0 3px rgba(46, 82, 57, 0.1); /* Green focus ring */
+}
+
+/* Override browser default blue colors for date inputs */
+.date-picker-input::-webkit-calendar-picker-indicator {
+    filter: invert(27%) sepia(15%) saturate(1000%) hue-rotate(90deg) brightness(95%) contrast(85%);
+    cursor: pointer;
+}
+
+.date-picker-input::-webkit-datetime-edit-text,
+.date-picker-input::-webkit-datetime-edit-month-field,
+.date-picker-input::-webkit-datetime-edit-day-field,
+.date-picker-input::-webkit-datetime-edit-year-field {
+    color: #334155; /* slate-700 */
+}
+
+.date-picker-input::-webkit-datetime-edit-text:focus,
+.date-picker-input::-webkit-datetime-edit-month-field:focus,
+.date-picker-input::-webkit-datetime-edit-day-field:focus,
+.date-picker-input::-webkit-datetime-edit-year-field:focus {
+    color: #2E5239; /* Deep Forest Green when focused */
+    background-color: rgba(46, 82, 57, 0.1);
+}
+
+/* Select dropdown styling - remove blue */
+.step-form select {
+    color: #334155; /* slate-700 */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%232E5239' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+}
+
+.step-form select option {
+    color: #334155; /* slate-700 */
+    background-color: white;
+}
+
+.step-form select option:checked {
+    background-color: #2E5239; /* Deep Forest Green */
+    color: white;
+}
+
+.step-form select:focus option:checked {
+    background-color: #2E5239; /* Deep Forest Green */
+    color: white;
 }
 
 .full-width-btn {
