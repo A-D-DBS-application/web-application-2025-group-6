@@ -112,8 +112,8 @@
             
         {% else %}
              <div class="no-results-card">
-                <h3>Geen Reisplan Gevonden</h3>
-                <p>Er konden geen activiteiten worden gevonden die passen bij de gekozen criteria. Controleer of er activiteiten zijn voor het gekozen land in de database of pas je interesses aan.</p>
+                <h3>No Trip Plan Found</h3>
+                <p>No activities could be found that match your selected criteria. Please check if there are activities available for the chosen country in the database or adjust your interests.</p>
             </div>
         {% endif %}
         
@@ -196,7 +196,7 @@
                 <p class="replace-selection-description">Select an activity to replace the current one. Only activities not already in your trip are shown.</p>
                 <div id="replace-activities-list" class="activities-list">
                     <div class="loading-spinner">
-                        <div class="spinner-border text-primary" role="status">
+                        <div class="spinner-border" role="status" style="border-color: #2E5239; border-right-color: transparent;">
                             <span class="visually-hidden">Loading...</span>
                         </div>
                         <p class="mt-3 text-muted">Loading activities...</p>
@@ -462,7 +462,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                     </div>
                                     <button class="btn btn-primary btn-sm select-replace-activity-btn" 
                                             data-activity-id="${activity.activity_type_id}"
-                                            data-price="${price}">Selecteren</button>
+                                            data-price="${price}">Select</button>
                                 </div>
                             </div>
                         `;
@@ -479,9 +479,9 @@ document.addEventListener("DOMContentLoaded", function() {
                     });
                 } else if (data.activities.length === 0) {
                     replaceActivitiesList.innerHTML = `
-                        <div class="alert alert-info text-center" style="padding: 30px; border-radius: 12px; background: #e7f3ff; border: 1px solid #b3d9ff; margin: 20px 0;">
+                        <div class="alert alert-info text-center" style="padding: 30px; border-radius: 12px; background: #f0f7f3; border: 1px solid #2E5239; margin: 20px 0;">
                             <div style="font-size: 2.5em; margin-bottom: 15px;">✓</div>
-                            <h5 style="color: #0b63f3; margin-bottom: 10px; font-weight: 600;">All Activities Added</h5>
+                            <h5 style="color: #2E5239; margin-bottom: 10px; font-weight: 600;">All Activities Added</h5>
                             <p style="color: #555; margin: 0;">All available activities for this country are already in your trip.</p>
                         </div>
                     `;
@@ -700,18 +700,6 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Function to regenerate itinerary after replacement
     function regenerateItinerary() {
-        // Show loading indicator
-        const itineraryGrid = document.getElementById('itinerary-grid');
-        const originalContent = itineraryGrid.innerHTML;
-        itineraryGrid.innerHTML = `
-            <div class="text-center p-5">
-                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-3 text-muted" style="font-size: 1.1em;">Regenerating your trip with optimized route...</p>
-            </div>
-        `;
-        
         // Redirect to result page with traveler_id to regenerate with correct logic
         // This will automatically show the updated end_date from the database
         window.location.href = `/result/${travelerId}`;

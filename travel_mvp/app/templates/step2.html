@@ -99,7 +99,13 @@
 
             <div class="buttons">
                 <a href="/step1" class="back-btn">← Previous</a>
-                <button type="button" class="next-btn" id="generate-trip-btn">Generate Trip →</button>
+                <button type="button" class="next-btn" id="generate-trip-btn">
+                    <span id="btn-text">Generate Trip →</span>
+                    <span id="btn-loading" style="display: none;">
+                        <span class="loading-spinner"></span>
+                        Scouting your adventure...
+                    </span>
+                </button>
             </div>
 
         </form>
@@ -210,8 +216,28 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // Save Options Modal functionality
+    // Loading state management
+    let isLoading = false;
     const generateTripBtn = document.getElementById('generate-trip-btn');
+    const btnText = document.getElementById('btn-text');
+    const btnLoading = document.getElementById('btn-loading');
+    
+    function setLoadingState(loading) {
+        isLoading = loading;
+        if (generateTripBtn && btnText && btnLoading) {
+            if (loading) {
+                generateTripBtn.disabled = true;
+                btnText.style.display = 'none';
+                btnLoading.style.display = 'inline';
+            } else {
+                generateTripBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            }
+        }
+    }
+
+    // Save Options Modal functionality
     const step2Form = document.getElementById('step2-form');
     const saveOptionsModal = document.getElementById('saveOptionsModal');
     const continueWithoutSavingBtn = document.getElementById('continue-without-saving-btn');
@@ -236,6 +262,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (continueWithoutSavingBtn) {
             continueWithoutSavingBtn.addEventListener('click', function() {
                 modal.hide();
+                setLoadingState(true);
                 step2Form.submit();
             });
         }
@@ -257,9 +284,15 @@ document.addEventListener("DOMContentLoaded", function () {
         // If user is logged in, submit form directly without modal
         generateTripBtn.addEventListener('click', function(e) {
             e.preventDefault();
+            setLoadingState(true);
             step2Form.submit();
         });
     }
+    
+    // Reset loading state if form submission fails (fallback)
+    window.addEventListener('beforeunload', function() {
+        setLoadingState(false);
+    });
 });
 </script>
 
