@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="hero" {% if hero_image %}style="background-image: url('{{ hero_image }}');"{% endif %}>
+<div class="hero" {% if hero_image %}style="--bg-image-url: url('{{ hero_image }}');"{% endif %}>
     <h1>Discover Your Perfect Journey</h1>
 </div>
 
@@ -9,43 +9,17 @@
 
 <div class="destinations">
     
-    {# UGANDA CARD #}
-    <div class="card">
-        <img src="{{ get_country_image_path('Uganda') }}" alt="Uganda">
-        <h3 class="card-title">Uganda</h3>
-        <p class="card-text">
-            The Pearl of Africa. A beautiful mix of lakes, mountains and wildlife.
-        </p>
-        
-        {# WIJZIGING: Gebruik een formulier om de 'start_trip' route aan te roepen #}
-        <form method="POST" action="{{ url_for('main.start_trip_route', country_name='Uganda') }}">
-            <button type="submit" class="card-btn">Discover Uganda</button>
-        </form>
-    </div>
-
-    {# RWANDA CARD #}
-    <div class="card">
-        <img src="{{ get_country_image_path('Rwanda') }}" alt="Rwanda">
-        <h3 class="card-title">Rwanda</h3>
-        <p class="card-text">
-            Land of a Thousand Hills with stunning green landscapes and culture.
-        </p>
-        <form method="POST" action="{{ url_for('main.start_trip_route', country_name='Rwanda') }}">
-            <button type="submit" class="card-btn">Discover Rwanda</button>
-        </form>
-    </div>
-
-    {# TANZANIA CARD #}
-    <div class="card">
-        <img src="{{ get_country_image_path('Tanzania') }}" alt="Tanzania">
-        <h3 class="card-title">Tanzania</h3>
-        <p class="card-text">
-            Home of Kilimanjaro, Serengeti and Zanzibar — perfect for adventure.
-        </p>
-        <form method="POST" action="{{ url_for('main.start_trip_route', country_name='Tanzania') }}">
-            <button type="submit" class="card-btn">Discover Tanzania</button>
-        </form>
-    </div>
+    {% set country_name = 'Uganda' %}
+    {% set description = 'The Pearl of Africa. A beautiful mix of lakes, mountains and wildlife.' %}
+    {% include 'partials/country_card.html' %}
+    
+    {% set country_name = 'Rwanda' %}
+    {% set description = 'Land of a Thousand Hills with stunning green landscapes and culture.' %}
+    {% include 'partials/country_card.html' %}
+    
+    {% set country_name = 'Tanzania' %}
+    {% set description = 'Home of Kilimanjaro, Serengeti and Zanzibar — perfect for adventure.' %}
+    {% include 'partials/country_card.html' %}
 </div>
 
 {% endblock %}

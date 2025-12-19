@@ -41,12 +41,19 @@ a {
 .hero {
     width: 100%;
     height: 420px;
-    /* background-image wordt nu dynamisch ingesteld via inline style in template */
     background-size: cover;
     background-position: center;
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.hero {
+    --bg-image-url: none;
+}
+
+.hero[style*="--bg-image-url"] {
+    background-image: var(--bg-image-url);
 }
 
 .hero h1 {
@@ -329,7 +336,6 @@ a {
 .trip-header {
     width: 100%;
     height: 400px;
-    /* background-image wordt nu dynamisch ingesteld via inline style in template */
     background-size: cover;
     background-position: center;
     margin-bottom: 40px;
@@ -338,6 +344,14 @@ a {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
+}
+
+.trip-header {
+    --bg-image-url: none;
+}
+
+.trip-header[style*="--bg-image-url"] {
+    background-image: var(--bg-image-url);
 }
 
 /* Specifieke aanpassing voor Uganda foto - positioneer meer naar beneden */

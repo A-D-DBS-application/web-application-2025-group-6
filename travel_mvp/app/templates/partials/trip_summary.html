@@ -1,0 +1,21 @@
+{# Trip Summary Partial - Reusable summary boxes for trip details #}
+<div class="trip-summary-container">
+    <div class="trip-summary-grid">
+        <div class="summary-box detail-box">
+            <h3>Travel Dates</h3>
+            <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
+        </div>
+
+        <div class="summary-box detail-box">
+            <h3>Travellers</h3>
+            <p>{{ adults or 1 }} {{ "Adult" if (adults or 1) == 1 else "Adults" }} | {{ children or 0 }} {{ "Child" if (children or 0) == 1 else "Children" }}</p>
+        </div>
+
+        <div class="summary-box detail-box">
+            <h3>Budget & Style</h3>
+            <p>Budget: {{ budget or "N/A" }}</p>
+            <p>Stay: {{ accommodation or "N/A" }}</p>
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,13 @@
+{# Country Card Partial - Reusable country destination card #}
+<div class="card">
+    <img src="{{ get_country_image_path(country_name) }}" alt="{{ country_name }}">
+    <h3 class="card-title">{{ country_name }}</h3>
+    <p class="card-text">
+        {{ description }}
+    </p>
+    
+    <form method="POST" action="{{ url_for('main.start_trip_route', country_name=country_name) }}">
+        <button type="submit" class="card-btn">Discover {{ country_name }}</button>
+    </form>
+</div>
+

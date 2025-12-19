@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="trip-header {% if country == 'uganda' %}trip-header-uganda{% endif %}" style="background-image: url('{{ background_image }}');">
+<div class="trip-header {% if country == 'uganda' %}trip-header-uganda{% endif %}" {% if background_image %}style="--bg-image-url: url('{{ background_image }}');"{% endif %}>
     <div class="trip-header-overlay">
         <h1>Your Personalized Journey</h1>
         {# De foutieve tekst over de foto is verwijderd #}
@@ -11,29 +11,7 @@
 
 <div class="step-container">
 
-    <div class="trip-summary-container">
-        <div class="trip-summary-grid">
-            <div class="summary-box detail-box">
-                <h3>Travel Dates</h3>
-                <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
-            </div>
-
-            <div class="summary-box detail-box">
-                <h3>Travellers</h3>
-                <p>{{ adults or 1 }} {{ "Adult" if (adults or 1) == 1 else "Adults" }} | {{ children or 0 }} {{ "Child" if (children or 0) == 1 else "Children" }}</p>
-            </div>
-
-            <div class="summary-box detail-box">
-                <h3>Budget & Style</h3>
-                <p>Budget: {{ budget or "N/A" }}</p>
-                <p>Stay: {{ accommodation or "N/A" }}</p>
-            </div>
-            
-        </div>
-        
-        {# De Oranje Algorithm Focus Box is in de CSS op 'transparent' gezet of uit de HTML verwijderd #}
-        
-    </div>
+    {% include 'partials/trip_summary.html' %}
     
     <div class="itinerary-header-section">
         <h2 class="section-title">Suggested Itinerary Overview</h2>

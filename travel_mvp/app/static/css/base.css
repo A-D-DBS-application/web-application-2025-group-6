@@ -1,0 +1,15 @@
+/* BASE.CSS - Base styles and global resets */
+
+/* GLOBAL */
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f7ff;
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
