@@ -442,11 +442,59 @@ def replace_itinerary_item(itinerary_id):
                     "error": "Could not create rest day activity. Please try again."
                 }), 500
             
-            # Replace with rest day activity
+            # Replace with rest day activity on the same day
+            # If original activity was multi-day, we'll add additional rest days on the following days
             itinerary_item.day_activity_id = rest_day_activity_id
             itinerary_item.title = "Rest Day"
             itinerary_item.description = "A relaxing day to unwind and enjoy the surroundings."
             new_duration = 1
+            
+            # If original activity was longer than 1 day, add additional rest days
+            # on the following days to maintain the same position
+            # First, check if there are any activities on those days that would conflict
+            if old_duration > 1:
+                # Check for conflicts on days old_day+1 to old_day+old_duration-1
+                conflict_check_sql = text("""
+                    SELECT COUNT(*) FROM itinerary
+                    WHERE traveler_id = :traveler_id
+                    AND day >= :start_day AND day < :end_day
+                    AND itinerary_id != :exclude_id
+                """)
+                conflict_result = db.session.execute(conflict_check_sql, {
+                    'traveler_id': traveler_id,
+                    'start_day': old_day + 1,
+                    'end_day': old_day + old_duration,
+                    'exclude_id': itinerary_id
+                })
+                has_conflicts = conflict_result.scalar() > 0
+                
+                if not has_conflicts:
+                    # No conflicts, add rest days on the following days
+                    has_user_id_column = check_column_exists('itinerary', 'user_id')
+                    for i in range(1, old_duration):  # Add rest days for days 2, 3, etc.
+                        additional_rest_day = old_day + i
+                        if has_user_id_column:
+                            insert_sql = text("""
+                                INSERT INTO itinerary (traveler_id, user_id, day, day_activity_id, title, description)
+                                VALUES (:traveler_id, NULL, :day, :activity_id, 'Rest Day', 'A relaxing day to unwind and enjoy the surroundings.')
+                            """)
+                        else:
+                            insert_sql = text("""
+                                INSERT INTO itinerary (traveler_id, day, day_activity_id, title, description)
+                                VALUES (:traveler_id, :day, :activity_id, 'Rest Day', 'A relaxing day to unwind and enjoy the surroundings.')
+                            """)
+                        db.session.execute(insert_sql, {
+                            'traveler_id': traveler_id,
+                            'day': additional_rest_day,
+                            'activity_id': rest_day_activity_id
+                        })
+                    # Update new_duration to match old_duration for Rest Day replacement
+                    # This prevents renumbering of later activities
+                    new_duration = old_duration
+                else:
+                    # There are conflicts - we'll let the normal renumbering logic handle it
+                    # The Rest Day will stay on old_day, and later activities will shift
+                    pass
         else:
             # Replace with new activity
             new_activity = safe_db_query(ActivityType.query.get_or_404, new_activity_id)
@@ -534,7 +582,9 @@ def replace_itinerary_item(itinerary_id):
         
         # If new activity is shorter, add rest days to maintain total duration
         # But only if we're not exceeding the planned duration
-        if new_duration < old_duration:
+        # NOTE: For Rest Day replacements, we already added rest days above if old_duration > 1
+        # So we skip this section for Rest Day replacements
+        if new_duration < old_duration and not is_rest_day:
             days_to_add = old_duration - new_duration
             
             # Check if adding rest days would exceed total trip duration
@@ -591,15 +641,27 @@ def replace_itinerary_item(itinerary_id):
                     # Update new_total_duration to reflect added rest days
                     new_total_duration += days_to_add
         
-        # Always regenerate to maintain route logic and correct day numbers
-        needs_regeneration = True
+        # Determine if regeneration is needed
+        # For Rest Day replacements, we don't need to regenerate if duration is unchanged
+        # (Rest Day should stay on the same day as the original activity)
+        rest_days_added = 0
+        if new_duration < old_duration and new_total_duration + (old_duration - new_duration) <= total_trip_days:
+            rest_days_added = old_duration - new_duration
+        
+        # Only regenerate if:
+        # 1. It's not a Rest Day replacement (new activities need optimization)
+        # 2. Or if rest days were added at the end (to show them)
+        # 3. Or if duration changed significantly (to renumber days correctly)
+        needs_regeneration = not is_rest_day or rest_days_added > 0 or abs(duration_diff) > 0
         
         return jsonify({
             "success": True,
             "message": "Activity replaced successfully",
             "itinerary_id": itinerary_id,
             "needs_regeneration": needs_regeneration,
+            "is_rest_day": is_rest_day,
             "day_unchanged": duration_diff == 0,
+            "rest_days_added": rest_days_added,
             "warning": warning_message,
             "exceeds_duration": exceeds_duration,
             "date_adjusted": date_adjusted,

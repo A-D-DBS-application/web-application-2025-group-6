@@ -681,80 +681,118 @@ def result_from_traveler_route(traveler_id):
                 })
         
         # Regenerate optimized route if we have activities
+        # BUT: Keep Rest Day activities on their original days (don't reorder them)
         country = traveler.country.lower() if traveler.country else ""
-        # Exclude Rest Day activities from optimization
+        
+        # Separate Rest Day activities from regular activities
+        rest_day_items = []
+        regular_items = []
+        
+        for item in itinerary_list:
+            # Check if this is a Rest Day
+            is_rest_day = (
+                item.get("activity_type_id") is None or
+                (item.get("activity") and item.get("activity").name == "Rest Day")
+            )
+            
+            if is_rest_day:
+                # Keep Rest Day on its original day - don't reorder
+                rest_day_items.append(item)
+            else:
+                regular_items.append(item)
+        
+        # Only optimize regular (non-Rest Day) activities if we have any
         activity_ids = [
             item.get("activity_type_id") 
-            for item in itinerary_list 
-            if item.get("activity_type_id") is not None 
-            and item.get("activity") 
-            and item.get("activity").name != "Rest Day"
+            for item in regular_items 
+            if item.get("activity_type_id") is not None
         ]
         
-        if activity_ids and country:
+        # If we have regular activities to optimize, do so
+        # But keep Rest Days exactly where they are
+        if activity_ids and country and len(regular_items) > 1:
+            # Only optimize if we have multiple activities (optimization makes sense)
             try:
                 optimized_activities = solve_travel_route(activity_ids, country=country)
                 
-                if optimized_activities:
+                if optimized_activities and len(optimized_activities) > 1:
                     # Create mapping of activity_id to item
-                    activity_to_item = {}
-                    rest_days = []
+                    activity_to_item = {item.get("activity_type_id"): item for item in regular_items}
                     
-                    for item in itinerary_list:
-                        # Check if this is a Rest Day (either no activity or Rest Day activity)
-                        is_rest_day = (
-                            item.get("activity_type_id") is None or
-                            (item.get("activity") and item.get("activity").name == "Rest Day")
-                        )
-                        
-                        if is_rest_day:
-                            rest_days.append(item)
-                        else:
-                            activity_to_item[item.get("activity_type_id")] = item
+                    # Create a set of days that are occupied by Rest Days
+                    rest_day_days = set()
+                    for rest_day in rest_day_items:
+                        rest_day_day = rest_day["day"]
+                        rest_day_days.add(rest_day_day)
+                        # Also mark multi-day rest days (though Rest Days are typically 1 day)
+                        if rest_day.get("activity") and rest_day.get("activity").duration_days:
+                            for d in range(rest_day_day, rest_day_day + rest_day.get("activity").duration_days):
+                                rest_day_days.add(d)
                     
-                    # Rebuild itinerary in optimized order
+                    # Rebuild itinerary: optimize regular activities, keep Rest Days in place
                     new_itinerary_list = []
                     current_day = 1
                     
-                    # Add optimized activities
+                    # Add optimized activities, skipping days occupied by Rest Days
                     for opt_activity in optimized_activities:
                         activity_id = opt_activity.activity_type_id
                         activity_duration = opt_activity.duration_days or 1
                         
                         if activity_id in activity_to_item:
+                            # Find next available day(s) that don't conflict with Rest Days
+                            while current_day in rest_day_days or any(
+                                day in rest_day_days 
+                                for day in range(current_day, current_day + activity_duration)
+                            ):
+                                current_day += 1
+                            
                             item = activity_to_item[activity_id].copy()
                             item["day"] = current_day
                             item["activity"] = opt_activity
                             new_itinerary_list.append(item)
                             current_day += activity_duration
                     
-                    # Add rest days back (simplified - insert at end)
-                    for rest_day in rest_days:
-                        rest_day["day"] = current_day
+                    # Add Rest Days back at their original positions (unchanged)
+                    for rest_day in rest_day_items:
                         new_itinerary_list.append(rest_day)
-                        current_day += 1
                     
-                    # Sort by day
+                    # Sort by day to maintain correct order
                     new_itinerary_list.sort(key=lambda x: x['day'])
                     
-                    # Update database with new day numbers
+                    # Update database with new day numbers (only for optimized activities)
                     for item_data in new_itinerary_list:
-                        update_sql = text("""
-                            UPDATE itinerary
-                            SET day = :new_day
-                            WHERE itinerary_id = :itinerary_id
-                        """)
-                        db.session.execute(update_sql, {
-                            'new_day': item_data['day'],
-                            'itinerary_id': item_data['itinerary_id']
-                        })
+                        # Only update if it's not a Rest Day (Rest Days keep their original day)
+                        is_rest_day_item = (
+                            item_data.get("activity_type_id") is None or
+                            (item_data.get("activity") and item_data.get("activity").name == "Rest Day")
+                        )
+                        
+                        if not is_rest_day_item:
+                            update_sql = text("""
+                                UPDATE itinerary
+                                SET day = :new_day
+                                WHERE itinerary_id = :itinerary_id
+                            """)
+                            db.session.execute(update_sql, {
+                                'new_day': item_data['day'],
+                                'itinerary_id': item_data['itinerary_id']
+                            })
                     
                     db.session.commit()
                     itinerary_list = new_itinerary_list
+                else:
+                    # Not enough activities to optimize, or optimization didn't change order
+                    # Keep everything as is, including Rest Days on their original days
+                    pass
                     
             except Exception as opt_error:
                 print(f"Warning: Route optimization failed during regeneration: {opt_error}")
                 # Use current itinerary if optimization fails
+                # Rest Days are already in their correct positions
+        else:
+            # Not enough activities to optimize, or all are Rest Days
+            # Keep everything as is, including Rest Days on their original days
+            pass
         
         # Prepare result data
         data = {

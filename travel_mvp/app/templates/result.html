@@ -420,9 +420,26 @@ document.addEventListener("DOMContentLoaded", function() {
                     updateEndDateDisplay(data.new_end_date);
                 }
                 
-                // Always regenerate to maintain route logic and correct day numbers
-                // (Rest days may have been added to maintain total duration)
-                regenerateItinerary();
+                // For Rest Day replacement, update the card directly without regenerating
+                // This keeps the Rest Day on the same day as the original activity
+                if (data.is_rest_day) {
+                    updateCardForRestDay(card);
+                    
+                    // Update total price (Rest Day is free)
+                    const cardPrice = parseFloat(card.dataset.price) || 0;
+                    const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
+                    const newTotal = Math.max(0, currentTotal - cardPrice); // Rest Day is free, so subtract old price
+                    document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+                    
+                    // Only regenerate if rest days were added to maintain duration
+                    // (This happens when the original activity was longer than 1 day)
+                    if (data.rest_days_added && data.rest_days_added > 0) {
+                        regenerateItinerary();
+                    }
+                } else {
+                    // For new activity replacement, always regenerate to optimize route
+                    regenerateItinerary();
+                }
             } else {
                 // Remove loading overlay on error
                 if (loadingOverlay.parentNode) {
