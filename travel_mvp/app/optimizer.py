@@ -102,8 +102,11 @@ def solve_travel_route(activity_ids, country=None):
     
     # Haal activiteiten op met coördinaten
     # Gebruik SQLAlchemy's .in_() voor veiligere query
+    # Exclude Rest Day activities from optimization
     try:
-        activities_query = ActivityType.query.filter(ActivityType.activity_type_id.in_(activity_ids))
+        activities_query = ActivityType.query.filter(
+            ActivityType.activity_type_id.in_(activity_ids)
+        ).filter(ActivityType.name != "Rest Day")
         activities_orm = activities_query.all()
         
         # Haal coördinaten op via raw SQL (mogelijk niet in ORM model)

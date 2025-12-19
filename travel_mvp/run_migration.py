@@ -19,3 +19,4 @@ with app.app_context():
         print("\nIf you see an error about the migration already being applied,")
         print("you can try running: flask db upgrade")
         raise
+

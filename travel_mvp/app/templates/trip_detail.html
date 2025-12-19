@@ -58,9 +58,19 @@
                     {% endif %}
                 {% endset %}
                 
-                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}">
+                {# Check if this is a rest day #}
+                {% set is_rest_day = item.activity and item.activity.name == "Rest Day" %}
+                
+                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %} {% if is_rest_day %}rest-day-card{% endif %}">
                     <div class="card-image-wrapper">
-                        {% if item.activity and item.activity.images_url_text %}
+                        {% if is_rest_day %}
+                            {# Use activity image if available, otherwise use beautiful African landscape view #}
+                            {% if item.activity and item.activity.images_url_text %}
+                                <img src="{{ item.activity.images_url_text }}" alt="Rest Day" class="activity-img">
+                            {% else %}
+                                <img src="https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&h=600&fit=crop&auto=format" alt="Rest Day" class="activity-img">
+                            {% endif %}
+                        {% elif item.activity and item.activity.images_url_text %}
                             <img src="{{ item.activity.images_url_text }}" alt="{{ item.title }}" class="activity-img">
                         {% else %}
                             <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
@@ -75,7 +85,9 @@
                         <p>{{ item.description }}</p>
                         
                         <div class="activity-meta-info">
-                            {% if item.activity.price_estimation and item.activity.price_estimation > 0 %}
+                            {% if is_rest_day %}
+                                <span class="activity-price">Free</span>
+                            {% elif item.activity.price_estimation and item.activity.price_estimation > 0 %}
                                 <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }}</span>
                             {% endif %}
                             {% if activity_duration > 1 %}
@@ -103,3 +115,4 @@
 </div>
 
 {% endblock %}
+

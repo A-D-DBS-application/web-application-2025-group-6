@@ -52,8 +52,15 @@
             
             {% for item in itinerary %}
                 
+                {# Check if this is a rest day (no activity or Rest Day activity) #}
+                {% set is_rest_day = not item.activity or not item.activity_type_id or (item.activity and item.activity.name == "Rest Day") %}
+                
                 {# Haal de duur op uit het meegestuurde activity object #}
-                {% set activity_duration = item.activity.duration_days or 1 %}
+                {% if is_rest_day %}
+                    {% set activity_duration = 1 %}
+                {% else %}
+                    {% set activity_duration = item.activity.duration_days or 1 if item.activity else 1 %}
+                {% endif %}
                 
                 {# Bepaal de dag(en) om te tonen #}
                 {% set start_day = item.day %}
@@ -67,14 +74,14 @@
                     {% endif %}
                 {% endset %}
                 
-                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %}" 
+                <div class="itinerary-card {% if activity_duration > 1 %} multi-day-card {% endif %} {% if is_rest_day %}rest-day-card{% endif %}" 
                      data-itinerary-id="{{ item.itinerary_id|default('') }}" 
                      data-day="{{ item.day }}"
-                     data-price="{{ item.activity.price_estimation or 0 }}">
+                     data-price="{{ item.activity.price_estimation or 0 if not is_rest_day else 0 }}">
                     
                     <button class="remove-activity-btn" 
                             data-itinerary-id="{{ item.itinerary_id|default('') }}" 
-                            data-price="{{ item.activity.price_estimation or 0 }}"
+                            data-price="{{ item.activity.price_estimation or 0 if not is_rest_day else 0 }}"
                             title="Remove activity"
                             type="button"
                             onclick="handleRemoveActivity(this); return false;">
@@ -83,7 +90,14 @@
                     
                     <div class="card-image-wrapper">
                         {# Toon de foto van de activiteit als deze beschikbaar is, anders gebruik placeholder #}
-                        {% if item.activity and item.activity.images_url_text %}
+                        {% if is_rest_day %}
+                            {# Use activity image if available, otherwise use beautiful African landscape view #}
+                            {% if item.activity and item.activity.images_url_text %}
+                                <img src="{{ item.activity.images_url_text }}" alt="Rest Day" class="activity-img">
+                            {% else %}
+                                <img src="https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&h=600&fit=crop&auto=format" alt="Rest Day" class="activity-img">
+                            {% endif %}
+                        {% elif item.activity and item.activity.images_url_text %}
                             <img src="{{ item.activity.images_url_text }}" alt="{{ item.title }}" class="activity-img">
                         {% else %}
                             <img src="https://via.placeholder.com/250x180?text={{ item.title|urlencode }}" alt="{{ item.title }}" class="activity-img">
@@ -98,10 +112,12 @@
                         <p>{{ item.description }}</p>
                         
                         <div class="activity-meta-info">
-                            {% if item.activity.price_estimation %}
+                            {% if not is_rest_day and item.activity.price_estimation %}
                                 <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }}</span>
+                            {% elif is_rest_day %}
+                                <span class="activity-price">Free</span>
                             {% endif %}
-                            {% if activity_duration > 1 %}
+                            {% if activity_duration > 1 and not is_rest_day %}
                                 <p class="duration-note-large">
                                     <i class="icon-clock"></i> **Duration:** {{ activity_duration }} days
                                 </p>
@@ -141,6 +157,77 @@
 
 </div>
 
+<!-- Replace Activity Options Modal -->
+<div class="modal fade" id="replaceActivityModal" tabindex="-1" aria-labelledby="replaceActivityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content replace-modal-content">
+            <div class="modal-header replace-modal-header">
+                <h5 class="modal-title" id="replaceActivityModalLabel">
+                    <i class="icon-edit" style="margin-right: 8px;"></i>Replace Activity
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body replace-modal-body">
+                <p class="replace-modal-description">What would you like to do with this activity?</p>
+                <div class="replace-options-grid">
+                    <button type="button" class="replace-option-btn rest-day-btn" id="replace-with-rest-btn">
+                        <div class="replace-option-icon">🌴</div>
+                        <div class="replace-option-content">
+                            <h6>Rest Day</h6>
+                            <p>Replace with a relaxing rest day</p>
+                        </div>
+                    </button>
+                    <button type="button" class="replace-option-btn new-activity-btn" id="replace-with-activity-btn">
+                        <div class="replace-option-icon">✨</div>
+                        <div class="replace-option-content">
+                            <h6>New Activity</h6>
+                            <p>Choose a different activity</p>
+                        </div>
+                    </button>
+                    <button type="button" class="replace-option-btn remove-activity-btn-modal" id="remove-activity-btn-modal">
+                        <div class="replace-option-icon">🗑️</div>
+                        <div class="replace-option-content">
+                            <h6>Remove Activity</h6>
+                            <p>Delete this activity from your trip</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer replace-modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Replace Activity Selection Modal -->
+<div class="modal fade" id="replaceActivitySelectionModal" tabindex="-1" aria-labelledby="replaceActivitySelectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content replace-selection-modal-content">
+            <div class="modal-header replace-selection-modal-header">
+                <h5 class="modal-title" id="replaceActivitySelectionModalLabel">
+                    <i class="icon-plus" style="margin-right: 8px;"></i>Choose New Activity
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body replace-selection-modal-body">
+                <p class="replace-selection-description">Select an activity to replace the current one. Only activities not already in your trip are shown.</p>
+                <div id="replace-activities-list" class="activities-list">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Loading activities...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer replace-selection-modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Add Activity Modal -->
 <div class="modal fade" id="addActivityModal" tabindex="-1" aria-labelledby="addActivityModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -163,6 +250,14 @@
 </div>
 
 <script>
+// Store current replacement context
+let currentReplacementContext = {
+    itineraryId: null,
+    card: null,
+    button: null,
+    activityDuration: null
+};
+
 // Make function globally available for inline onclick
 function handleRemoveActivity(button) {
     const itineraryId = button.dataset.itineraryId;
@@ -197,69 +292,22 @@ function handleRemoveActivity(button) {
         return false;
     }
     
-    if (confirm('Are you sure you want to remove this activity?')) {
-        // Get activity duration for renumbering
-        const isMultiDay = card.classList.contains('multi-day-card');
-        const durationText = card.querySelector('.duration-note-large');
-        const activityDuration = durationText ? parseInt(durationText.textContent.match(/\d+/)?.[0] || '1') : 1;
-        const removedDay = parseInt(card.dataset.day);
-        
-        // Visual feedback: disable button and show loading state
-        button.disabled = true;
-        button.style.opacity = '0.5';
-        button.style.cursor = 'wait';
-        
-        // Update total price immediately
-        const cardPrice = parseFloat(card.dataset.price) || 0;
-        const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
-        const newTotal = Math.max(0, currentTotal - cardPrice);
-        document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
-        
-        // Animate card removal
-        card.style.transition = 'all 0.4s ease-out';
-        card.style.transform = 'translateX(-100%)';
-        card.style.opacity = '0';
-        
-        // Call API to remove from database
-        fetch(`/api/itinerary/${itineraryId}/remove`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Renumber all days after the removed day(s) in the UI
-                renumberDays(removedDay, activityDuration);
-                
-                // Remove card from DOM after animation
-                setTimeout(() => {
-                    card.remove();
-                }, 400);
-            } else {
-                // Revert visual changes on error
-                card.style.transform = '';
-                card.style.opacity = '1';
-                button.disabled = false;
-                button.style.opacity = '';
-                button.style.cursor = '';
-                document.getElementById('total-price-value').textContent = `$${currentTotal.toFixed(2)}`;
-                alert('Error removing activity: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // Revert visual changes on error
-            card.style.transform = '';
-            card.style.opacity = '1';
-            button.disabled = false;
-            button.style.opacity = '';
-            button.style.cursor = '';
-            document.getElementById('total-price-value').textContent = `$${currentTotal.toFixed(2)}`;
-            alert('Error removing activity. Please try again.');
-        });
-    }
+    // Get activity duration for removal message
+    const isMultiDay = card.classList.contains('multi-day-card');
+    const durationText = card.querySelector('.duration-note-large');
+    const activityDuration = durationText ? parseInt(durationText.textContent.match(/\d+/)?.[0] || '1') : 1;
+    
+    // Store context for replacement modal
+    currentReplacementContext = {
+        itineraryId: itineraryId,
+        card: card,
+        button: button,
+        activityDuration: activityDuration
+    };
+    
+    // Show replacement options modal
+    const replaceModal = new bootstrap.Modal(document.getElementById('replaceActivityModal'));
+    replaceModal.show();
     
     return false;
 }
@@ -296,9 +344,446 @@ document.addEventListener("DOMContentLoaded", function() {
     const itineraryGrid = document.getElementById('itinerary-grid');
     const travelerId = itineraryGrid.dataset.travelerId;
     const country = itineraryGrid.dataset.country;
+    const children = parseInt(itineraryGrid.dataset.children) || 0;
     const addActivityBtn = document.getElementById('add-activity-btn');
     const addActivityModal = new bootstrap.Modal(document.getElementById('addActivityModal'));
     const activitiesList = document.getElementById('activities-list');
+    
+    // Replacement modals
+    const replaceActivityModal = new bootstrap.Modal(document.getElementById('replaceActivityModal'));
+    const replaceActivitySelectionModal = new bootstrap.Modal(document.getElementById('replaceActivitySelectionModal'));
+    const replaceActivitiesList = document.getElementById('replace-activities-list');
+    
+    // Replace with rest day button - execute immediately
+    document.getElementById('replace-with-rest-btn').addEventListener('click', function() {
+        replaceActivityModal.hide();
+        // Execute replacement immediately without confirmation
+        replaceActivityWithRest();
+    });
+    
+    // Replace with new activity button
+    document.getElementById('replace-with-activity-btn').addEventListener('click', function() {
+        replaceActivityModal.hide();
+        loadReplaceActivities();
+        replaceActivitySelectionModal.show();
+    });
+    
+    // Remove activity button
+    document.getElementById('remove-activity-btn-modal').addEventListener('click', function() {
+        replaceActivityModal.hide();
+        removeActivityFromItinerary();
+    });
+    
+    // Function to replace activity with rest day
+    function replaceActivityWithRest() {
+        const { itineraryId, card, button } = currentReplacementContext;
+        
+        if (!itineraryId) return;
+        
+        // Show loading state
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.style.cursor = 'wait';
+        
+        // Add loading overlay to card
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'replacement-loading-overlay';
+        loadingOverlay.innerHTML = '<div class="spinner-border spinner-border-sm text-white" role="status"></div>';
+        card.style.position = 'relative';
+        card.appendChild(loadingOverlay);
+        
+        fetch(`/api/itinerary/${itineraryId}/replace`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                is_rest_day: true,
+                activity_type_id: null
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove loading overlay
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                }
+                
+                // Show warning if duration is exceeded
+                if (data.warning) {
+                    alert(data.warning);
+                }
+                
+                // Update end date display if it was adjusted
+                if (data.date_adjusted && data.new_end_date) {
+                    updateEndDateDisplay(data.new_end_date);
+                }
+                
+                // Always regenerate to maintain route logic and correct day numbers
+                // (Rest days may have been added to maintain total duration)
+                regenerateItinerary();
+            } else {
+                // Remove loading overlay on error
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                }
+                button.disabled = false;
+                button.style.opacity = '';
+                button.style.cursor = '';
+                alert('Error replacing activity: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Remove loading overlay on error
+            if (loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
+            button.disabled = false;
+            button.style.opacity = '';
+            button.style.cursor = '';
+            alert('Error replacing activity. Please try again.');
+        });
+    }
+    
+    // Function to load activities for replacement (excluding current ones)
+    function loadReplaceActivities() {
+        replaceActivitiesList.innerHTML = '<p class="text-muted">Loading activities...</p>';
+        
+        fetch(`/api/activities/${country}?traveler_id=${travelerId}&children=${children}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.activities.length > 0) {
+                    let html = '<div class="activities-grid">';
+                    data.activities.forEach(activity => {
+                        const price = activity.price_estimation || 0;
+                        html += `
+                            <div class="activity-option-card" 
+                                 data-activity-id="${activity.activity_type_id}" 
+                                 data-duration="${activity.duration_days}"
+                                 data-price="${price}">
+                                ${activity.images_url_text ? `<img src="${activity.images_url_text}" alt="${activity.name}" class="activity-option-img">` : ''}
+                                <div class="activity-option-content">
+                                    <h4>${activity.name}</h4>
+                                    <p>${activity.description || ''}</p>
+                                    <div class="activity-option-meta">
+                                        <span>Duration: ${activity.duration_days} day(s)</span>
+                                        ${price > 0 ? `<span>Price: $${parseFloat(price).toFixed(2)}</span>` : '<span>Price: Free</span>'}
+                                    </div>
+                                    <button class="btn btn-primary btn-sm select-replace-activity-btn" 
+                                            data-activity-id="${activity.activity_type_id}"
+                                            data-price="${price}">Selecteren</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    replaceActivitiesList.innerHTML = html;
+                    
+                    // Add click handlers to select buttons
+                    document.querySelectorAll('.select-replace-activity-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const activityId = this.dataset.activityId;
+                            replaceActivityWithNew(activityId);
+                        });
+                    });
+                } else if (data.activities.length === 0) {
+                    replaceActivitiesList.innerHTML = `
+                        <div class="alert alert-info text-center" style="padding: 30px; border-radius: 12px; background: #e7f3ff; border: 1px solid #b3d9ff; margin: 20px 0;">
+                            <div style="font-size: 2.5em; margin-bottom: 15px;">✓</div>
+                            <h5 style="color: #0b63f3; margin-bottom: 10px; font-weight: 600;">All Activities Added</h5>
+                            <p style="color: #555; margin: 0;">All available activities for this country are already in your trip.</p>
+                        </div>
+                    `;
+                } else {
+                    replaceActivitiesList.innerHTML = '<p class="text-muted text-center">No activities available for this country.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                replaceActivitiesList.innerHTML = '<p class="text-danger text-center">Error loading activities. Please try again.</p>';
+            });
+    }
+    
+    // Function to replace activity with new activity
+    function replaceActivityWithNew(activityTypeId) {
+        const { itineraryId, card, button } = currentReplacementContext;
+        
+        if (!itineraryId || !activityTypeId) return;
+        
+        // Disable button during loading
+        const selectBtn = document.querySelector(`.select-replace-activity-btn[data-activity-id="${activityTypeId}"]`);
+        if (selectBtn) {
+            selectBtn.disabled = true;
+            selectBtn.textContent = 'Replacing...';
+        }
+        
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.style.cursor = 'wait';
+        
+        fetch(`/api/itinerary/${itineraryId}/replace`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                activity_type_id: activityTypeId,
+                is_rest_day: false
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                replaceActivitySelectionModal.hide();
+                
+                // Show warning if duration is exceeded
+                if (data.warning) {
+                    alert(data.warning);
+                }
+                
+                // Update end date display if it was adjusted
+                if (data.date_adjusted && data.new_end_date) {
+                    updateEndDateDisplay(data.new_end_date);
+                }
+                
+                // Always regenerate to maintain route logic and correct day numbers
+                regenerateItinerary();
+            } else {
+                    if (selectBtn) {
+                        selectBtn.disabled = false;
+                        selectBtn.textContent = 'Select';
+                    }
+                    button.disabled = false;
+                    button.style.opacity = '';
+                    button.style.cursor = '';
+                    alert('Error replacing activity: ' + (data.error || 'Unknown error'));
+                }
+        })
+            .catch(error => {
+                console.error('Error:', error);
+                if (selectBtn) {
+                    selectBtn.disabled = false;
+                    selectBtn.textContent = 'Select';
+                }
+                button.disabled = false;
+                button.style.opacity = '';
+                button.style.cursor = '';
+                alert('Error replacing activity. Please try again.');
+            });
+    }
+    
+    // Function to update end date display
+    function updateEndDateDisplay(newEndDateStr) {
+        // Format the new end date to match the template format
+        // The template uses format_date_for_display which formats as "DD-MM-YYYY"
+        // newEndDateStr is in format "YYYY-MM-DD"
+        const dateParts = newEndDateStr.split('-');
+        if (dateParts.length === 3) {
+            const year = dateParts[0];
+            const month = dateParts[1];
+            const day = dateParts[2];
+            const formattedEndDate = `${day}-${month}-${year}`;
+            
+            // Find the end date display element and update it
+            // Look for the Travel Dates summary box
+            const summaryBoxes = document.querySelectorAll('.summary-box');
+            summaryBoxes.forEach(box => {
+                const title = box.querySelector('h3');
+                if (title && title.textContent.includes('Travel Dates')) {
+                    const dateElement = box.querySelector('p');
+                    if (dateElement) {
+                        const text = dateElement.textContent;
+                        if (text.includes('–')) {
+                            // Format: "DD-MM-YYYY – DD-MM-YYYY" or "not set – DD-MM-YYYY"
+                            const parts = text.split('–');
+                            if (parts.length === 2) {
+                                const startPart = parts[0].trim();
+                                dateElement.textContent = `${startPart} – ${formattedEndDate}`;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // Function to remove activity from itinerary
+    function removeActivityFromItinerary() {
+        const { itineraryId, card, button, activityDuration } = currentReplacementContext;
+        
+        if (!itineraryId) {
+            alert('Cannot remove: Activity not found in database.');
+            return;
+        }
+        
+        // Confirm removal
+        const durationText = activityDuration > 1 ? `${activityDuration} days` : '1 day';
+        if (!confirm(`Are you sure you want to remove this activity? This will remove ${durationText} from your trip and adjust your end date.`)) {
+            return;
+        }
+        
+        // Show loading state
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.style.cursor = 'wait';
+        
+        // Add loading overlay to card
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'replacement-loading-overlay';
+        loadingOverlay.innerHTML = '<div class="spinner-border spinner-border-sm text-white" role="status"></div>';
+        card.style.position = 'relative';
+        card.appendChild(loadingOverlay);
+        
+        fetch(`/api/itinerary/${itineraryId}/remove`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove loading overlay
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                }
+                
+                // Show message about days removed and date adjustment
+                if (data.days_removed && data.days_removed > 0) {
+                    const daysText = data.days_removed === 1 ? 'day' : 'days';
+                    let message = `${data.days_removed} ${daysText} removed from your trip.`;
+                    if (data.date_adjusted && data.new_end_date) {
+                        message += ` Your trip end date has been adjusted to ${formatDateForDisplay(data.new_end_date)}.`;
+                        updateEndDateDisplay(data.new_end_date);
+                    }
+                    alert(message);
+                }
+                
+                // Update total price
+                const cardPrice = parseFloat(card.dataset.price) || 0;
+                const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
+                const newTotal = Math.max(0, currentTotal - cardPrice);
+                document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+                
+                // Animate card removal
+                card.style.transition = 'all 0.4s ease-out';
+                card.style.transform = 'translateX(-100%)';
+                card.style.opacity = '0';
+                
+                // Remove card and renumber days
+                setTimeout(() => {
+                    card.remove();
+                    if (data.removed_day && data.duration) {
+                        renumberDays(data.removed_day, data.duration);
+                    }
+                }, 400);
+            } else {
+                // Remove loading overlay on error
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                }
+                button.disabled = false;
+                button.style.opacity = '';
+                button.style.cursor = '';
+                alert('Error removing activity: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Remove loading overlay on error
+            if (loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
+            button.disabled = false;
+            button.style.opacity = '';
+            button.style.cursor = '';
+            alert('Error removing activity. Please try again.');
+        });
+    }
+    
+    // Helper function to format date for display
+    function formatDateForDisplay(dateStr) {
+        // dateStr is in format "YYYY-MM-DD"
+        const dateParts = dateStr.split('-');
+        if (dateParts.length === 3) {
+            return `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        }
+        return dateStr;
+    }
+    
+    // Function to regenerate itinerary after replacement
+    function regenerateItinerary() {
+        // Show loading indicator
+        const itineraryGrid = document.getElementById('itinerary-grid');
+        const originalContent = itineraryGrid.innerHTML;
+        itineraryGrid.innerHTML = `
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3 text-muted" style="font-size: 1.1em;">Regenerating your trip with optimized route...</p>
+            </div>
+        `;
+        
+        // Redirect to result page with traveler_id to regenerate with correct logic
+        // This will automatically show the updated end_date from the database
+        window.location.href = `/result/${travelerId}`;
+    }
+    
+    // Helper function to update card for rest day
+    function updateCardForRestDay(card) {
+        // Update title and description
+        const titleElement = card.querySelector('h3');
+        const descElement = card.querySelector('p');
+        if (titleElement) titleElement.textContent = 'Rest Day';
+        if (descElement) descElement.textContent = 'A relaxing day to unwind and enjoy the surroundings.';
+        
+        // Update price
+        card.dataset.price = '0';
+        
+        // Update price display
+        const priceElement = card.querySelector('.activity-price');
+        if (priceElement) {
+            priceElement.textContent = 'Free';
+        } else {
+            // Create price element if it doesn't exist
+            const metaInfo = card.querySelector('.activity-meta-info');
+            if (metaInfo) {
+                const newPriceElement = document.createElement('span');
+                newPriceElement.className = 'activity-price';
+                newPriceElement.textContent = 'Free';
+                metaInfo.insertBefore(newPriceElement, metaInfo.firstChild);
+            }
+        }
+        
+        // Remove duration note if exists
+        const durationNote = card.querySelector('.duration-note-large');
+        if (durationNote) {
+            durationNote.remove();
+        }
+        
+        // Update image to beautiful African landscape view
+        const imgElement = card.querySelector('.activity-img');
+        if (imgElement) {
+            imgElement.src = 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&h=600&fit=crop&auto=format';
+            imgElement.alt = 'Rest Day';
+        }
+        
+        // Add rest day class for styling
+        card.classList.add('rest-day-card');
+        
+        // Update total price
+        updateTotalPrice();
+        
+        // Add smooth transition effect
+        card.style.transition = 'all 0.3s ease';
+        card.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+            card.style.transform = '';
+        }, 300);
+    }
     
     // Calculate and display total price
     function updateTotalPrice() {
@@ -413,6 +898,16 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // Show warning if duration is exceeded
+                if (data.warning) {
+                    alert(data.warning);
+                }
+                
+                // Update end date display if it was adjusted
+                if (data.date_adjusted && data.new_end_date) {
+                    updateEndDateDisplay(data.new_end_date);
+                }
+                
                 // Update total price immediately
                 const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
                 const newPrice = data.activity.price_estimation || activityPrice || 0;

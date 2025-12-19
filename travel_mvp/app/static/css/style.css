@@ -1102,6 +1102,274 @@ a {
     font-size: 1.5em;
 }
 
+/* Replace Activity Modal Styling */
+.replace-modal-content {
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    border: none;
+    overflow: hidden;
+}
+
+.replace-modal-header {
+    background: linear-gradient(135deg, #0b63f3 0%, #0954d0 100%);
+    color: white;
+    border-bottom: none;
+    padding: 24px 28px;
+}
+
+.replace-modal-header .modal-title {
+    color: white;
+    font-weight: 600;
+    font-size: 1.4em;
+    display: flex;
+    align-items: center;
+}
+
+.replace-modal-header .btn-close {
+    filter: invert(1);
+    opacity: 0.9;
+}
+
+.replace-modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+.replace-modal-body {
+    padding: 32px 28px;
+}
+
+.replace-modal-description {
+    color: #555;
+    font-size: 1.05em;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.replace-options-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.replace-option-btn {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 24px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+}
+
+.replace-option-btn:hover {
+    border-color: #0b63f3;
+    background: #f8f9ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(11, 99, 243, 0.15);
+}
+
+.rest-day-btn:hover {
+    border-color: #28a745;
+    background: #f0fff4;
+}
+
+.new-activity-btn:hover {
+    border-color: #0b63f3;
+    background: #f8f9ff;
+}
+
+.remove-activity-btn-modal:hover {
+    border-color: #dc3545;
+    background: #fff5f5;
+}
+
+.replace-option-icon {
+    font-size: 2.5em;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.replace-option-content h6 {
+    margin: 0 0 4px 0;
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #333;
+}
+
+.replace-option-content p {
+    margin: 0;
+    color: #666;
+    font-size: 0.95em;
+}
+
+.replace-modal-footer {
+    border-top: 1px solid #e9ecef;
+    padding: 20px 28px;
+}
+
+/* Replace Selection Modal Styling */
+.replace-selection-modal-content {
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    border: none;
+}
+
+.replace-selection-modal-header {
+    background: linear-gradient(135deg, #0b63f3 0%, #0954d0 100%);
+    color: white;
+    border-bottom: none;
+    padding: 24px 28px;
+}
+
+.replace-selection-modal-header .modal-title {
+    color: white;
+    font-weight: 600;
+    font-size: 1.4em;
+    display: flex;
+    align-items: center;
+}
+
+.replace-selection-modal-header .btn-close {
+    filter: invert(1);
+    opacity: 0.9;
+}
+
+.replace-selection-modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+.replace-selection-modal-body {
+    padding: 28px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.replace-selection-description {
+    color: #555;
+    font-size: 1.05em;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.replace-selection-modal-footer {
+    border-top: 1px solid #e9ecef;
+    padding: 20px 28px;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+/* Rest Day Card Styling */
+.rest-day-card {
+    border-left: 5px solid #28a745;
+    background: linear-gradient(to right, #f0fff4 0%, white 5%);
+}
+
+.rest-day-card .activity-price {
+    color: #28a745;
+    font-weight: 600;
+}
+
+/* Replacement Loading Overlay */
+.replacement-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    z-index: 1000;
+}
+
+/* Activity Option Cards in Replace Modal */
+#replace-activities-list .activities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+#replace-activities-list .activity-option-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+#replace-activities-list .activity-option-card:hover {
+    border-color: #0b63f3;
+    box-shadow: 0 4px 12px rgba(11, 99, 243, 0.15);
+    transform: translateY(-2px);
+}
+
+#replace-activities-list .activity-option-img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+}
+
+#replace-activities-list .activity-option-content {
+    padding: 16px;
+}
+
+#replace-activities-list .activity-option-content h4 {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+#replace-activities-list .activity-option-content p {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+#replace-activities-list .activity-option-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+#replace-activities-list .select-replace-activity-btn {
+    width: 100%;
+    padding: 10px;
+    background: #0b63f3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#replace-activities-list .select-replace-activity-btn:hover:not(:disabled) {
+    background: #0954d0;
+    transform: translateY(-1px);
+}
+
+#replace-activities-list .select-replace-activity-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 #addActivityModal .modal-body {
     padding: 25px;
     max-height: 70vh;

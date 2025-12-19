@@ -40,3 +40,4 @@ with app.app_context():
         print(f"✗ Error checking column: {e}")
         print("\nThis might indicate a database connection issue.")
         raise
+

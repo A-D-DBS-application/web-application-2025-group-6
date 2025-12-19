@@ -22,7 +22,7 @@ def remove_itinerary_item(itinerary_id):
     """
     Remove an activity from an itinerary.
     
-    Automatically renumbers remaining days and updates the database.
+    Automatically renumbers remaining days, updates the database, and adjusts end_date.
     """
     try:
         itinerary_item = safe_db_query(Itinerary.query.get_or_404, itinerary_id)
@@ -35,9 +35,24 @@ def remove_itinerary_item(itinerary_id):
         # Check authorization if user_id column exists
         has_user_id_column = check_column_exists('itinerary', 'user_id')
         if has_user_id_column and current_user.is_authenticated:
-            if itinerary_item.user_id != current_user.user_id:
+            if itinerary_item.user_id and itinerary_item.user_id != current_user.user_id:
                 return jsonify({"success": False, "error": "Unauthorized"}), 403
 
+        # Get traveler to adjust end_date
+        from app.models import Traveler
+        traveler = safe_db_query(Traveler.query.get, traveler_id)
+        
+        # Calculate current total duration before removal
+        current_duration_sql = text("""
+            SELECT SUM(COALESCE(at.duration_days, 1))
+            FROM itinerary i
+            LEFT JOIN activity_type at ON i.day_activity_id = at.activity_type_id
+            WHERE i.traveler_id = :traveler_id
+        """)
+        current_duration_result = db.session.execute(current_duration_sql, {'traveler_id': traveler_id})
+        current_total_duration = current_duration_result.scalar() or 0
+        
+        # Delete the itinerary item
         db.session.delete(itinerary_item)
 
         # Update day numbers for remaining activities
@@ -53,12 +68,34 @@ def remove_itinerary_item(itinerary_id):
         })
 
         db.session.commit()
+        
+        # Adjust end_date if traveler exists and has dates
+        date_adjusted = False
+        new_end_date = None
+        if traveler and traveler.start_date and traveler.end_date:
+            # Calculate new total duration after removal
+            new_total_duration = current_total_duration - activity_duration
+            
+            # Calculate planned duration
+            total_trip_days = (traveler.end_date - traveler.start_date).days + 1
+            
+            # If new duration is less than planned, adjust end_date
+            if new_total_duration < total_trip_days:
+                from datetime import timedelta
+                days_to_remove = total_trip_days - new_total_duration
+                new_end_date = traveler.end_date - timedelta(days=days_to_remove)
+                traveler.end_date = new_end_date
+                db.session.commit()
+                date_adjusted = True
 
         return jsonify({
             "success": True,
             "message": "Activity removed successfully",
             "removed_day": removed_day,
-            "duration": activity_duration
+            "duration": activity_duration,
+            "days_removed": activity_duration,
+            "date_adjusted": date_adjusted,
+            "new_end_date": new_end_date.strftime('%Y-%m-%d') if new_end_date else None
         })
     except Exception as e:
         db.session.rollback()
@@ -79,6 +116,9 @@ def get_activities_by_country(country):
         num_children = request.args.get('children', type=int, default=0)
 
         base_query = ActivityType.query.filter_by(country=country_normalized)
+        
+        # Exclude Rest Day activities from available activities list
+        base_query = base_query.filter(ActivityType.name != "Rest Day")
 
         # Apply child-friendly filter if children are present
         if num_children > 0:
@@ -128,6 +168,7 @@ def add_itinerary_item():
     Add a new activity to an existing itinerary.
     
     Automatically determines the next available day (minimum day 2).
+    Checks if adding this activity exceeds the planned trip duration and adjusts end_date if needed.
     """
     try:
         data = request.get_json()
@@ -137,8 +178,56 @@ def add_itinerary_item():
         if not all([traveler_id, activity_type_id]):
             return jsonify({"success": False, "error": "Missing required fields"}), 400
 
+        # Get traveler to check total trip duration
+        from app.models import Traveler
+        traveler = safe_db_query(Traveler.query.get, traveler_id)
+        if not traveler:
+            return jsonify({"success": False, "error": "Traveler not found"}), 404
+
         # Get activity details with retry logic
         activity = safe_db_query(ActivityType.query.get_or_404, activity_type_id)
+        activity_duration = activity.duration_days if activity.duration_days else 1
+
+        # Calculate total trip duration from start_date and end_date
+        if traveler.start_date and traveler.end_date:
+            total_trip_days = (traveler.end_date - traveler.start_date).days + 1
+        else:
+            total_trip_days = None
+
+        # Calculate current total duration of all activities
+        current_duration_sql = text("""
+            SELECT SUM(COALESCE(at.duration_days, 1))
+            FROM itinerary i
+            LEFT JOIN activity_type at ON i.day_activity_id = at.activity_type_id
+            WHERE i.traveler_id = :traveler_id
+        """)
+        current_duration_result = db.session.execute(current_duration_sql, {'traveler_id': traveler_id})
+        current_total_duration = current_duration_result.scalar() or 0
+
+        # Calculate new total duration after adding activity
+        new_total_duration = current_total_duration + activity_duration
+
+        # Check if we exceed the planned trip duration
+        exceeds_duration = False
+        warning_message = None
+        date_adjusted = False
+        new_end_date = None
+
+        if total_trip_days and new_total_duration > total_trip_days:
+            exceeds_duration = True
+            # Calculate how many extra days we need
+            extra_days = new_total_duration - total_trip_days
+            
+            # Automatically adjust end_date
+            from datetime import timedelta
+            if traveler.end_date:
+                new_end_date = traveler.end_date + timedelta(days=extra_days)
+                traveler.end_date = new_end_date
+                db.session.commit()
+                date_adjusted = True
+                warning_message = f"Warning: Adding this activity increases your trip to {new_total_duration} days (exceeds your planned {total_trip_days} days). Your trip end date has been automatically adjusted to {new_end_date.strftime('%Y-%m-%d')}."
+            else:
+                warning_message = f"Warning: Adding this activity increases your trip to {new_total_duration} days, which exceeds your planned {total_trip_days} days."
 
         # Find the maximum day number for this traveler to determine next day
         max_day_result = db.session.query(func.max(Itinerary.day)).filter_by(traveler_id=traveler_id).scalar()
@@ -190,16 +279,503 @@ def add_itinerary_item():
                 "day": next_day,
                 "title": activity.name,
                 "description": activity.description,
-                "duration_days": activity.duration_days or 1,
+                "duration_days": activity_duration,
                 "images_url_text": activity.images_url_text,
                 "activity_type_id": activity_type_id,
                 "price_estimation": float(activity.price_estimation) if activity.price_estimation else 0
-            }
+            },
+            "warning": warning_message,
+            "exceeds_duration": exceeds_duration,
+            "date_adjusted": date_adjusted,
+            "new_end_date": new_end_date.strftime('%Y-%m-%d') if new_end_date else None,
+            "new_total_days": new_total_duration,
+            "planned_days": total_trip_days
         })
     except Exception as e:
         db.session.rollback()
         db.session.expire_all()
         print(f"Error adding activity: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def get_or_create_rest_day_activity(country):
+    """
+    Get or create a 'Rest Day' activity for the given country.
+    
+    Since day_activity_id cannot be NULL, we use a special Rest Day activity.
+    """
+    try:
+        # Normalize country name
+        country_normalized = country.capitalize() if country else None
+        
+        # Try to find existing Rest Day activity for this country
+        rest_day = safe_db_query(
+            lambda: ActivityType.query.filter_by(
+                name="Rest Day",
+                country=country_normalized
+            ).first()
+        )
+        
+        if rest_day:
+            # Update image if it doesn't have one
+            if not rest_day.images_url_text:
+                rest_day_image_url = "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&h=600&fit=crop&auto=format"
+                rest_day.images_url_text = rest_day_image_url
+                db.session.commit()
+            return rest_day.activity_type_id
+        
+        # If not found, create one using ORM
+        # Check which columns exist to build the activity correctly
+        has_child_friendly = check_column_exists('activity_type', 'is_child_friendly')
+        has_price = check_column_exists('activity_type', 'price_estimation')
+        
+        # Create new Rest Day activity with a beautiful relaxing image
+        # Using a high-quality Unsplash image of a beautiful African landscape view
+        rest_day_image_url = "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&h=600&fit=crop&auto=format"
+        
+        # Create new Rest Day activity
+        new_rest_day = ActivityType(
+            name="Rest Day",
+            description="A relaxing day to unwind and enjoy the surroundings.",
+            duration_days=1,
+            country=country_normalized,
+            price_estimation=0 if has_price else None,
+            is_child_friendly=True if has_child_friendly else None,
+            images_url_text=rest_day_image_url
+        )
+        
+        db.session.add(new_rest_day)
+        db.session.flush()  # Get the ID without committing
+        rest_day_id = new_rest_day.activity_type_id
+        db.session.commit()
+        
+        return rest_day_id
+            
+    except Exception as e:
+        db.session.rollback()
+        db.session.expire_all()
+        print(f"Error creating/getting rest day activity: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+@api_bp.route("/api/itinerary/<int:itinerary_id>/replace", methods=["POST"])
+def replace_itinerary_item(itinerary_id):
+    """
+    Replace an activity in an itinerary with a new activity or rest day.
+    
+    Maintains the total trip duration by adding/removing rest days as needed.
+    If activity_type_id is provided, replaces with that activity.
+    If activity_type_id is None or "rest", replaces with a rest day activity.
+    """
+    try:
+        data = request.get_json()
+        new_activity_id = data.get("activity_type_id")  # None for rest day
+        is_rest_day = data.get("is_rest_day", False) or new_activity_id is None
+        
+        itinerary_item = safe_db_query(Itinerary.query.get_or_404, itinerary_id)
+        traveler_id = itinerary_item.traveler_id
+        old_day = itinerary_item.day
+        
+        # Get traveler to determine country and total trip duration
+        from app.models import Traveler
+        traveler = safe_db_query(Traveler.query.get, traveler_id)
+        if not traveler:
+            return jsonify({"success": False, "error": "Traveler not found"}), 404
+        
+        country = traveler.country if traveler else None
+        
+        # Calculate total trip duration from start_date and end_date
+        if traveler.start_date and traveler.end_date:
+            total_trip_days = (traveler.end_date - traveler.start_date).days + 1
+        else:
+            # Fallback: calculate from current itinerary
+            max_day_sql = text("""
+                SELECT MAX(day) FROM itinerary WHERE traveler_id = :traveler_id
+            """)
+            max_day_result = db.session.execute(max_day_sql, {'traveler_id': traveler_id})
+            max_day = max_day_result.scalar() or 0
+            # Get duration of last activity
+            last_activity_sql = text("""
+                SELECT i.day_activity_id FROM itinerary i 
+                WHERE i.traveler_id = :traveler_id AND i.day = :max_day
+            """)
+            last_result = db.session.execute(last_activity_sql, {
+                'traveler_id': traveler_id,
+                'max_day': max_day
+            })
+            last_row = last_result.fetchone()
+            if last_row and last_row[0]:
+                last_activity = safe_db_query(ActivityType.query.get, last_row[0])
+                last_duration = last_activity.duration_days if last_activity and last_activity.duration_days else 1
+                total_trip_days = max_day + last_duration - 1
+            else:
+                total_trip_days = max_day
+        
+        # Calculate current total duration of all activities
+        current_duration_sql = text("""
+            SELECT SUM(COALESCE(at.duration_days, 1))
+            FROM itinerary i
+            LEFT JOIN activity_type at ON i.day_activity_id = at.activity_type_id
+            WHERE i.traveler_id = :traveler_id
+        """)
+        current_duration_result = db.session.execute(current_duration_sql, {'traveler_id': traveler_id})
+        current_total_duration = current_duration_result.scalar() or 0
+        
+        # Get old activity duration
+        old_activity = safe_db_query(ActivityType.query.get, itinerary_item.day_activity_id)
+        old_duration = old_activity.duration_days if old_activity and old_activity.duration_days else 1
+        
+        # Check authorization if user_id column exists
+        has_user_id_column = check_column_exists('itinerary', 'user_id')
+        if has_user_id_column and current_user.is_authenticated:
+            if itinerary_item.user_id and itinerary_item.user_id != current_user.user_id:
+                return jsonify({"success": False, "error": "Unauthorized"}), 403
+        
+        if is_rest_day:
+            # Get or create rest day activity (cannot use NULL for day_activity_id)
+            rest_day_activity_id = get_or_create_rest_day_activity(country)
+            if not rest_day_activity_id:
+                return jsonify({
+                    "success": False,
+                    "error": "Could not create rest day activity. Please try again."
+                }), 500
+            
+            # Replace with rest day activity
+            itinerary_item.day_activity_id = rest_day_activity_id
+            itinerary_item.title = "Rest Day"
+            itinerary_item.description = "A relaxing day to unwind and enjoy the surroundings."
+            new_duration = 1
+        else:
+            # Replace with new activity
+            new_activity = safe_db_query(ActivityType.query.get_or_404, new_activity_id)
+            
+            # Check if activity is already in itinerary (except the one being replaced)
+            existing_check = text("""
+                SELECT COUNT(*) FROM itinerary 
+                WHERE traveler_id = :traveler_id 
+                AND day_activity_id = :activity_id 
+                AND itinerary_id != :exclude_id
+            """)
+            result = db.session.execute(existing_check, {
+                'traveler_id': traveler_id,
+                'activity_id': new_activity_id,
+                'exclude_id': itinerary_id
+            })
+            if result.scalar() > 0:
+                return jsonify({
+                    "success": False, 
+                    "error": "This activity is already in your itinerary"
+                }), 400
+            
+            itinerary_item.day_activity_id = new_activity_id
+            itinerary_item.title = new_activity.name
+            itinerary_item.description = new_activity.description
+            new_duration = new_activity.duration_days if new_activity.duration_days else 1
+        
+        db.session.commit()
+        
+        # Calculate new total duration after replacement
+        new_total_duration = current_total_duration - old_duration + new_duration
+        duration_diff = new_duration - old_duration
+        
+        # Renumber days if duration changed (do this first)
+        if duration_diff != 0:
+            # Update day numbers for remaining activities
+            if duration_diff > 0:
+                # New activity is longer, shift later activities forward
+                sql = text("""
+                    UPDATE itinerary
+                    SET day = day + :increase_by
+                    WHERE traveler_id = :traveler_id AND day > :old_day
+                """)
+                db.session.execute(sql, {
+                    'traveler_id': traveler_id,
+                    'old_day': old_day,
+                    'increase_by': duration_diff
+                })
+            else:
+                # New activity is shorter, shift later activities backward
+                sql = text("""
+                    UPDATE itinerary
+                    SET day = day - :decrease_by
+                    WHERE traveler_id = :traveler_id AND day > :old_day
+                """)
+                db.session.execute(sql, {
+                    'traveler_id': traveler_id,
+                    'old_day': old_day,
+                    'decrease_by': abs(duration_diff)
+                })
+            db.session.commit()
+        
+        # After renumbering, check if we need to add rest days or show warning
+        # Recalculate new total duration after renumbering
+        new_total_duration = current_total_duration - old_duration + new_duration
+        
+        # Check if we exceed the planned trip duration
+        exceeds_duration = new_total_duration > total_trip_days
+        warning_message = None
+        date_adjusted = False
+        new_end_date = None
+        
+        if exceeds_duration:
+            # Automatically adjust end_date
+            from datetime import timedelta
+            if traveler.end_date:
+                extra_days = new_total_duration - total_trip_days
+                new_end_date = traveler.end_date + timedelta(days=extra_days)
+                traveler.end_date = new_end_date
+                db.session.commit()
+                date_adjusted = True
+                warning_message = f"Warning: This change increases your trip to {new_total_duration} days (exceeds your planned {total_trip_days} days). Your trip end date has been automatically adjusted to {new_end_date.strftime('%Y-%m-%d')}."
+            else:
+                warning_message = f"Warning: This change increases your trip to {new_total_duration} days, which exceeds your planned {total_trip_days} days."
+        
+        # If new activity is shorter, add rest days to maintain total duration
+        # But only if we're not exceeding the planned duration
+        if new_duration < old_duration:
+            days_to_add = old_duration - new_duration
+            
+            # Check if adding rest days would exceed total trip duration
+            if new_total_duration + days_to_add <= total_trip_days:
+                # Find the last day in the itinerary (after renumbering)
+                max_day_sql = text("""
+                    SELECT MAX(day) FROM itinerary WHERE traveler_id = :traveler_id
+                """)
+                max_day_result = db.session.execute(max_day_sql, {'traveler_id': traveler_id})
+                max_day = max_day_result.scalar() or old_day
+                
+                # Get the duration of the last activity to find where it ends
+                last_activity_sql = text("""
+                    SELECT i.day_activity_id, i.day FROM itinerary i 
+                    WHERE i.traveler_id = :traveler_id AND i.day = :max_day
+                """)
+                last_result = db.session.execute(last_activity_sql, {
+                    'traveler_id': traveler_id,
+                    'max_day': max_day
+                })
+                last_row = last_result.fetchone()
+                
+                if last_row and last_row[0]:
+                    last_activity = safe_db_query(ActivityType.query.get, last_row[0])
+                    last_duration = last_activity.duration_days if last_activity and last_activity.duration_days else 1
+                    # Calculate where to insert rest days (after the last activity ends)
+                    insert_start_day = max_day + last_duration
+                else:
+                    insert_start_day = max_day + 1
+                
+                # Get rest day activity ID
+                rest_day_activity_id = get_or_create_rest_day_activity(country)
+                if rest_day_activity_id:
+                    # Add rest days after the last activity
+                    has_user_id_column = check_column_exists('itinerary', 'user_id')
+                    for i in range(days_to_add):
+                        insert_day = insert_start_day + i
+                        if has_user_id_column:
+                            insert_sql = text("""
+                                INSERT INTO itinerary (traveler_id, user_id, day, day_activity_id, title, description)
+                                VALUES (:traveler_id, NULL, :day, :activity_id, 'Rest Day', 'A relaxing day to unwind and enjoy the surroundings.')
+                            """)
+                        else:
+                            insert_sql = text("""
+                                INSERT INTO itinerary (traveler_id, day, day_activity_id, title, description)
+                                VALUES (:traveler_id, :day, :activity_id, 'Rest Day', 'A relaxing day to unwind and enjoy the surroundings.')
+                            """)
+                        db.session.execute(insert_sql, {
+                            'traveler_id': traveler_id,
+                            'day': insert_day,
+                            'activity_id': rest_day_activity_id
+                        })
+                    db.session.commit()
+                    # Update new_total_duration to reflect added rest days
+                    new_total_duration += days_to_add
+        
+        # Always regenerate to maintain route logic and correct day numbers
+        needs_regeneration = True
+        
+        return jsonify({
+            "success": True,
+            "message": "Activity replaced successfully",
+            "itinerary_id": itinerary_id,
+            "needs_regeneration": needs_regeneration,
+            "day_unchanged": duration_diff == 0,
+            "warning": warning_message,
+            "exceeds_duration": exceeds_duration,
+            "date_adjusted": date_adjusted,
+            "new_end_date": new_end_date.strftime('%Y-%m-%d') if new_end_date else None,
+            "new_total_days": new_total_duration,
+            "planned_days": total_trip_days
+        })
+    except Exception as e:
+        db.session.rollback()
+        db.session.expire_all()
+        print(f"Error replacing activity: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/api/itinerary/regenerate", methods=["POST"])
+def regenerate_itinerary():
+    """
+    Regenerate the itinerary page after activity replacement.
+    
+    This endpoint regenerates the itinerary using the optimizer to maintain
+    the route logic and correct day numbers.
+    """
+    try:
+        data = request.get_json()
+        traveler_id = data.get("traveler_id")
+        
+        if not traveler_id:
+            return jsonify({"success": False, "error": "Missing traveler_id"}), 400
+        
+        # Get traveler info
+        from app.models import Traveler
+        traveler = safe_db_query(Traveler.query.get_or_404, traveler_id)
+        
+        # Get all itinerary items for this traveler
+        itinerary_items = safe_db_query(
+            lambda: Itinerary.query.filter_by(traveler_id=traveler_id)
+            .order_by(Itinerary.day.asc())
+            .all()
+        )
+        
+        if not itinerary_items:
+            return jsonify({"success": False, "error": "No itinerary found"}), 404
+        
+        # Get country
+        country = traveler.country.lower() if traveler.country else ""
+        
+        # Extract activity IDs (excluding rest days where day_activity_id is NULL)
+        activity_ids = [item.day_activity_id for item in itinerary_items if item.day_activity_id is not None]
+        
+        # Regenerate optimized route if we have activities
+        if activity_ids and country:
+            from app.optimizer import solve_travel_route
+            try:
+                optimized_activities = solve_travel_route(activity_ids, country=country)
+                
+                if optimized_activities:
+                    # Create mapping of activity_id to itinerary item
+                    activity_to_item = {}
+                    rest_days = []  # Track rest days separately
+                    
+                    for item in itinerary_items:
+                        # Check if this is a Rest Day activity
+                        activity = safe_db_query(ActivityType.query.get, item.day_activity_id) if item.day_activity_id else None
+                        is_rest_day = (
+                            item.day_activity_id is None or
+                            (activity and activity.name == "Rest Day")
+                        )
+                        
+                        if is_rest_day:
+                            # Rest day - keep original position info
+                            rest_days.append({
+                                'itinerary_id': item.itinerary_id,
+                                'day': item.day,
+                                'title': item.title or "Rest Day",
+                                'description': item.description or "A relaxing day to unwind and enjoy the surroundings.",
+                                'activity_type_id': item.day_activity_id,
+                                'activity': activity
+                            })
+                        else:
+                            activity_to_item[item.day_activity_id] = item
+                    
+                    # Rebuild itinerary in optimized order
+                    new_itinerary_list = []
+                    current_day = 1
+                    
+                    # Add optimized activities
+                    for opt_activity in optimized_activities:
+                        activity_id = opt_activity.activity_type_id
+                        activity_duration = opt_activity.duration_days or 1
+                        
+                        if activity_id in activity_to_item:
+                            item = activity_to_item[activity_id]
+                            
+                            # Update day in database
+                            item.day = current_day
+                            item.title = opt_activity.name
+                            item.description = opt_activity.description
+                            
+                            new_itinerary_list.append({
+                                "itinerary_id": item.itinerary_id,
+                                "day": current_day,
+                                "title": item.title,
+                                "description": item.description,
+                                "activity_type_id": activity_id,
+                                "activity": opt_activity
+                            })
+                            
+                            current_day += activity_duration
+                    
+                    # Add rest days back in their approximate positions
+                    # (This is a simplified approach - you might want more sophisticated logic)
+                    for rest_day in rest_days:
+                        # Insert rest day at appropriate position
+                        new_itinerary_list.append({
+                            "itinerary_id": rest_day['itinerary_id'],
+                            "day": current_day,
+                            "title": rest_day['title'],
+                            "description": rest_day['description'],
+                            "activity_type_id": None,
+                            "activity": None
+                        })
+                        current_day += 1
+                    
+                    # Sort by day
+                    new_itinerary_list.sort(key=lambda x: x['day'])
+                    
+                    # Update database with new day numbers
+                    for item_data in new_itinerary_list:
+                        update_sql = text("""
+                            UPDATE itinerary
+                            SET day = :new_day
+                            WHERE itinerary_id = :itinerary_id
+                        """)
+                        db.session.execute(update_sql, {
+                            'new_day': item_data['day'],
+                            'itinerary_id': item_data['itinerary_id']
+                        })
+                    
+                    db.session.commit()
+                    
+                    # Return updated itinerary data
+                    return jsonify({
+                        "success": True,
+                        "itinerary": new_itinerary_list,
+                        "message": "Itinerary regenerated successfully"
+                    })
+            except Exception as opt_error:
+                print(f"Warning: Route optimization failed during regeneration: {opt_error}")
+                # Fall through to return current itinerary
+        
+        # Return current itinerary if optimization not needed or failed
+        itinerary_list = []
+        for item in itinerary_items:
+            activity = None
+            if item.day_activity_id:
+                activity = safe_db_query(ActivityType.query.get, item.day_activity_id)
+            
+            itinerary_list.append({
+                "itinerary_id": item.itinerary_id,
+                "day": item.day,
+                "title": item.title,
+                "description": item.description,
+                "activity_type_id": item.day_activity_id,
+                "activity": activity
+            })
+        
+        return jsonify({
+            "success": True,
+            "itinerary": itinerary_list,
+            "message": "Itinerary retrieved successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        db.session.expire_all()
+        print(f"Error regenerating itinerary: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 

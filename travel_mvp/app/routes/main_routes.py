@@ -627,6 +627,157 @@ def result_route():
     return render_template("result.html", **data)
 
 
+@main_bp.route("/result/<int:traveler_id>")
+def result_from_traveler_route(traveler_id):
+    """
+    Regenerate result page from existing traveler_id.
+    
+    This allows the page to be regenerated after activity replacement
+    without requiring session data.
+    """
+    try:
+        # Get traveler info
+        traveler = safe_db_query(Traveler.query.get_or_404, traveler_id)
+        
+        # Get all itinerary items for this traveler
+        itinerary_items = safe_db_query(
+            lambda: Itinerary.query.filter_by(traveler_id=traveler_id)
+            .order_by(Itinerary.day.asc())
+            .all()
+        )
+        
+        if not itinerary_items:
+            flash("No itinerary found for this trip.", "warning")
+            return redirect(url_for("main.index"))
+        
+        # Prepare itinerary list from database
+        itinerary_list = []
+        for item in itinerary_items:
+            activity = None
+            if item.day_activity_id:
+                activity = safe_db_query(ActivityType.query.get, item.day_activity_id)
+            
+            # Check if this is a Rest Day activity
+            is_rest_day = activity and activity.name == "Rest Day"
+            
+            if activity:
+                itinerary_list.append({
+                    "itinerary_id": item.itinerary_id,
+                    "day": item.day,
+                    "title": item.title or activity.name,
+                    "description": item.description or activity.description,
+                    "activity_type_id": item.day_activity_id,
+                    "activity": activity
+                })
+            else:
+                # Fallback for items without activity (shouldn't happen with Rest Day fix)
+                itinerary_list.append({
+                    "itinerary_id": item.itinerary_id,
+                    "day": item.day,
+                    "title": item.title or "Rest Day",
+                    "description": item.description or "A relaxing day to unwind and enjoy the surroundings.",
+                    "activity_type_id": None,
+                    "activity": None
+                })
+        
+        # Regenerate optimized route if we have activities
+        country = traveler.country.lower() if traveler.country else ""
+        # Exclude Rest Day activities from optimization
+        activity_ids = [
+            item.get("activity_type_id") 
+            for item in itinerary_list 
+            if item.get("activity_type_id") is not None 
+            and item.get("activity") 
+            and item.get("activity").name != "Rest Day"
+        ]
+        
+        if activity_ids and country:
+            try:
+                optimized_activities = solve_travel_route(activity_ids, country=country)
+                
+                if optimized_activities:
+                    # Create mapping of activity_id to item
+                    activity_to_item = {}
+                    rest_days = []
+                    
+                    for item in itinerary_list:
+                        # Check if this is a Rest Day (either no activity or Rest Day activity)
+                        is_rest_day = (
+                            item.get("activity_type_id") is None or
+                            (item.get("activity") and item.get("activity").name == "Rest Day")
+                        )
+                        
+                        if is_rest_day:
+                            rest_days.append(item)
+                        else:
+                            activity_to_item[item.get("activity_type_id")] = item
+                    
+                    # Rebuild itinerary in optimized order
+                    new_itinerary_list = []
+                    current_day = 1
+                    
+                    # Add optimized activities
+                    for opt_activity in optimized_activities:
+                        activity_id = opt_activity.activity_type_id
+                        activity_duration = opt_activity.duration_days or 1
+                        
+                        if activity_id in activity_to_item:
+                            item = activity_to_item[activity_id].copy()
+                            item["day"] = current_day
+                            item["activity"] = opt_activity
+                            new_itinerary_list.append(item)
+                            current_day += activity_duration
+                    
+                    # Add rest days back (simplified - insert at end)
+                    for rest_day in rest_days:
+                        rest_day["day"] = current_day
+                        new_itinerary_list.append(rest_day)
+                        current_day += 1
+                    
+                    # Sort by day
+                    new_itinerary_list.sort(key=lambda x: x['day'])
+                    
+                    # Update database with new day numbers
+                    for item_data in new_itinerary_list:
+                        update_sql = text("""
+                            UPDATE itinerary
+                            SET day = :new_day
+                            WHERE itinerary_id = :itinerary_id
+                        """)
+                        db.session.execute(update_sql, {
+                            'new_day': item_data['day'],
+                            'itinerary_id': item_data['itinerary_id']
+                        })
+                    
+                    db.session.commit()
+                    itinerary_list = new_itinerary_list
+                    
+            except Exception as opt_error:
+                print(f"Warning: Route optimization failed during regeneration: {opt_error}")
+                # Use current itinerary if optimization fails
+        
+        # Prepare result data
+        data = {
+            "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
+            "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
+            "budget": traveler.budget_range or "N/A",
+            "adults": traveler.adults or 1,
+            "children": traveler.children or 0,
+            "accommodation": traveler.accommodation_type or "N/A",
+            "itinerary": itinerary_list,
+            "background_image": get_country_image_path(country),
+            "country": country,
+            "traveler_id": traveler_id
+        }
+        
+        return render_template("result.html", **data)
+        
+    except Exception as e:
+        print(f"Error loading result from traveler_id: {e}")
+        flash("Error loading trip details.", "danger")
+        return redirect(url_for("main.index"))
+
+
 # Note: Authentication, API, and itinerary management routes have been moved to separate blueprints:
 # - app/routes/auth_routes.py (login, logout)
 # - app/routes/api_routes.py (remove, add activities)
