@@ -13,19 +13,16 @@
     <div class="trip-summary-container">
         <div class="trip-summary-grid">
             <div class="summary-box detail-box">
-                <i class="icon-calendar">📅</i>
                 <h3>Travel Dates</h3>
                 <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
             </div>
 
             <div class="summary-box detail-box">
-                <i class="icon-users">👥</i>
                 <h3>Travellers</h3>
                 <p>{{ adults or "1" }} Adults | {{ children or "0" }} Children</p>
             </div>
 
             <div class="summary-box detail-box">
-                <i class="icon-tag">💰</i>
                 <h3>Budget & Style</h3>
                 <p>Budget: {{ budget or "N/A" }}</p>
                 <p>Stay: {{ accommodation or "N/A" }}</p>
@@ -36,9 +33,17 @@
     <div class="itinerary-header-section">
         <h2 class="section-title">Complete Itinerary</h2>
         {% if total_price and total_price > 0 %}
-        <div class="total-price-display">
-            <span class="total-price-label">Total Estimated Price:</span>
-            <span class="total-price-value">${{ "%.2f"|format(total_price) }}</span>
+        <div class="total-price-display" id="total-price-display">
+            <div class="price-info-row">
+                <div class="price-item">
+                    <span class="total-price-label">Total Estimated Price:</span>
+                    <span class="total-price-value" id="total-price-value">${{ "%.2f"|format(total_price) }}</span>
+                </div>
+                <div class="price-item">
+                    <span class="average-price-label">Average price p.p.:</span>
+                    <span class="average-price-value" id="average-price-value">${{ "%.2f"|format(average_price_per_person) }}</span>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -88,7 +93,7 @@
                             {% if is_rest_day %}
                                 <span class="activity-price">Free</span>
                             {% elif item.activity.price_estimation and item.activity.price_estimation > 0 %}
-                                <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }}</span>
+                                <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }} p.p.</span>
                             {% endif %}
                             {% if activity_duration > 1 %}
                                 <p class="duration-note-large">
@@ -108,6 +113,7 @@
     </div>
     
     <div class="action-section">
+        <a href="{{ url_for('itinerary.restore_preferences_route', traveler_id=traveler_id) }}" class="secondary-action-btn">My Preferences</a>
         <a href="{{ url_for('itinerary.my_trips_route') }}" class="secondary-action-btn">← Back to My Trips</a>
         <a href="{{ url_for('main.index', reset='all') }}" class="primary-action-btn">Plan New Trip</a>
     </div>

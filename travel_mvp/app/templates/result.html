@@ -14,19 +14,16 @@
     <div class="trip-summary-container">
         <div class="trip-summary-grid">
             <div class="summary-box detail-box">
-                <i class="icon-calendar"></i>
                 <h3>Travel Dates</h3>
                 <p>{{ start or "not set" }} – {{ end or "not set" }}</p>
             </div>
 
             <div class="summary-box detail-box">
-                <i class="icon-users"></i>
                 <h3>Travellers</h3>
                 <p>{{ adults or "1" }} Adults | {{ children or "0" }} Children</p>
             </div>
 
             <div class="summary-box detail-box">
-                <i class="icon-tag"></i>
                 <h3>Budget & Style</h3>
                 <p>Budget: {{ budget or "N/A" }}</p>
                 <p>Stay: {{ accommodation or "N/A" }}</p>
@@ -41,12 +38,20 @@
     <div class="itinerary-header-section">
         <h2 class="section-title">Suggested Itinerary Overview</h2>
         <div class="total-price-display" id="total-price-display">
-            <span class="total-price-label">Total Estimated Price:</span>
-            <span class="total-price-value" id="total-price-value">$0</span>
+            <div class="price-info-row">
+                <div class="price-item">
+                    <span class="total-price-label">Total Estimated Price:</span>
+                    <span class="total-price-value" id="total-price-value">$0</span>
+                </div>
+                <div class="price-item">
+                    <span class="average-price-label">Average price p.p.:</span>
+                    <span class="average-price-value" id="average-price-value">$0</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="itinerary-grid" id="itinerary-grid" data-traveler-id="{{ traveler_id }}" data-country="{{ country }}" data-children="{{ children or 0 }}">
+    <div class="itinerary-grid" id="itinerary-grid" data-traveler-id="{{ traveler_id }}" data-country="{{ country }}" data-children="{{ children or 0 }}" data-adults="{{ adults or 1 }}">
         
         {% if itinerary %}
             
@@ -113,7 +118,7 @@
                         
                         <div class="activity-meta-info">
                             {% if not is_rest_day and item.activity.price_estimation %}
-                                <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }}</span>
+                                <span class="activity-price">${{ "%.2f"|format(item.activity.price_estimation) }} p.p.</span>
                             {% elif is_rest_day %}
                                 <span class="activity-price">Free</span>
                             {% endif %}
@@ -425,11 +430,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (data.is_rest_day) {
                     updateCardForRestDay(card);
                     
-                    // Update total price (Rest Day is free)
-                    const cardPrice = parseFloat(card.dataset.price) || 0;
-                    const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
-                    const newTotal = Math.max(0, currentTotal - cardPrice); // Rest Day is free, so subtract old price
-                    document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+                    // Update total price using updateTotalPrice function
+                    updateTotalPrice();
                     
                     // Only regenerate if rest days were added to maintain duration
                     // (This happens when the original activity was longer than 1 day)
@@ -486,7 +488,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                     <p>${activity.description || ''}</p>
                                     <div class="activity-option-meta">
                                         <span>Duration: ${activity.duration_days} day(s)</span>
-                                        ${price > 0 ? `<span>Price: $${parseFloat(price).toFixed(2)}</span>` : '<span>Price: Free</span>'}
+                                        ${price > 0 ? `<span>Price: $${parseFloat(price).toFixed(2)} p.p.</span>` : '<span>Price: Free</span>'}
                                     </div>
                                     <button class="btn btn-primary btn-sm select-replace-activity-btn" 
                                             data-activity-id="${activity.activity_type_id}"
@@ -678,12 +680,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     alert(message);
                 }
                 
-                // Update total price
-                const cardPrice = parseFloat(card.dataset.price) || 0;
-                const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
-                const newTotal = Math.max(0, currentTotal - cardPrice);
-                document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
-                
                 // Animate card removal
                 card.style.transition = 'all 0.4s ease-out';
                 card.style.transform = 'translateX(-100%)';
@@ -695,6 +691,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (data.removed_day && data.duration) {
                         renumberDays(data.removed_day, data.duration);
                     }
+                    // Update total price after card is removed
+                    updateTotalPrice();
                 }, 400);
             } else {
                 // Remove loading overlay on error
@@ -805,16 +803,35 @@ document.addEventListener("DOMContentLoaded", function() {
     // Calculate and display total price
     function updateTotalPrice() {
         const cards = document.querySelectorAll('.itinerary-card');
-        let total = 0;
+        let totalPerPerson = 0;
         
+        // Sum all activity prices per person
         cards.forEach(card => {
             const price = parseFloat(card.dataset.price) || 0;
-            total += price;
+            totalPerPerson += price;
         });
         
+        // Get number of adults and children
+        const adults = parseInt(itineraryGrid.dataset.adults) || 1;
+        const children = parseInt(itineraryGrid.dataset.children) || 0;
+        
+        // Calculate total: (price pp * adults) + (price pp * children * 0.5)
+        const totalPrice = (totalPerPerson * adults) + (totalPerPerson * children * 0.5);
+        
+        // Calculate average price per person
+        const totalTravelers = adults + children;
+        const averagePricePerPerson = totalTravelers > 0 ? totalPrice / totalTravelers : 0;
+        
+        // Update total price display
         const totalPriceElement = document.getElementById('total-price-value');
         if (totalPriceElement) {
-            totalPriceElement.textContent = `$${total.toFixed(2)}`;
+            totalPriceElement.textContent = `$${totalPrice.toFixed(2)}`;
+        }
+        
+        // Update average price per person display
+        const averagePriceElement = document.getElementById('average-price-value');
+        if (averagePriceElement) {
+            averagePriceElement.textContent = `$${averagePricePerPerson.toFixed(2)}`;
         }
     }
     
@@ -850,7 +867,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                     <p>${activity.description || ''}</p>
                                     <div class="activity-option-meta">
                                         <span>Duration: ${activity.duration_days} day(s)</span>
-                                        ${price > 0 ? `<span>Price: $${parseFloat(price).toFixed(2)}</span>` : '<span>Price: Free</span>'}
+                                        ${price > 0 ? `<span>Price: $${parseFloat(price).toFixed(2)} p.p.</span>` : '<span>Price: Free</span>'}
                                     </div>
                                     <button class="btn btn-primary btn-sm select-activity-btn" 
                                             data-activity-id="${activity.activity_type_id}"
@@ -925,11 +942,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     updateEndDateDisplay(data.new_end_date);
                 }
                 
-                // Update total price immediately
-                const currentTotal = parseFloat(document.getElementById('total-price-value').textContent.replace('$', '')) || 0;
-                const newPrice = data.activity.price_estimation || activityPrice || 0;
-                const newTotal = currentTotal + newPrice;
-                document.getElementById('total-price-value').textContent = `$${newTotal.toFixed(2)}`;
+                // Update total price using updateTotalPrice function
+                updateTotalPrice();
                 
                 // Create new card element
                 // Use the day from API response, ensure it's at least day 2
@@ -976,7 +990,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         <h3>${activityName}</h3>
                         <p>${activityDescription}</p>
                         <div class="activity-meta-info">
-                            ${newPrice > 0 ? `<span class="activity-price">$${newPrice.toFixed(2)}</span>` : ''}
+                            ${newPrice > 0 ? `<span class="activity-price">$${newPrice.toFixed(2)} p.p.</span>` : ''}
                             ${isMultiDay ? `<p class="duration-note-large"><i class="icon-clock"></i> **Duration:** ${activityDuration} days</p>` : ''}
                         </div>
                     </div>

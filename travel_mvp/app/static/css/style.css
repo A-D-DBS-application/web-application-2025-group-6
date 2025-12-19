@@ -982,9 +982,29 @@ a {
     gap: 10px;
 }
 
-.total-price-label {
+.price-info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.price-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.total-price-label,
+.average-price-label {
     font-weight: 500;
     font-size: 0.95em;
+}
+
+.total-price-value,
+.average-price-value {
+    font-weight: 700;
+    font-size: 1.1em;
 }
 
 .total-price-value {

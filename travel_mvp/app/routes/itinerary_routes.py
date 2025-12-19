@@ -4,11 +4,11 @@ Itinerary management routes for the travel MVP application.
 Handles viewing saved trips and itinerary management.
 """
 
-from flask import Blueprint, render_template, flash, redirect, url_for
+from flask import Blueprint, render_template, flash, redirect, url_for, session
 from flask_login import login_required, current_user
 from app import db
 from app.models import Itinerary, Traveler
-from app.utils import safe_db_query, format_accommodation_type, format_budget_range
+from app.utils import safe_db_query, format_accommodation_type, format_budget_range, restore_session_preferences, parse_date
 
 itinerary_bp = Blueprint("itinerary", __name__)
 
@@ -84,7 +84,7 @@ def trip_detail_route(traveler_id):
         from app.models import ActivityType
         
         itinerary_list = []
-        total_price = 0
+        total_price_per_person = 0
         
         # Sort items by day
         sorted_items = sorted(itinerary_items, key=lambda x: x.day)
@@ -99,7 +99,7 @@ def trip_detail_route(traveler_id):
             if activity:
                 activity_obj = activity
                 price = float(activity.price_estimation) if activity.price_estimation else 0
-                total_price += price
+                total_price_per_person += price
             else:
                 # Placeholder activity (Local Exploration)
                 class PlaceholderActivity:
@@ -125,6 +125,15 @@ def trip_detail_route(traveler_id):
                 "activity": activity_obj
             })
         
+        # Calculate total price: (prijs pp * adults) + (prijs pp * children * 0.5)
+        adults = traveler.adults or 1
+        children = traveler.children or 0
+        total_price = (total_price_per_person * adults) + (total_price_per_person * children * 0.5)
+        
+        # Calculate average price per person
+        total_travelers = adults + children
+        average_price_per_person = total_price / total_travelers if total_travelers > 0 else 0
+        
         # Prepare data for template (similar to result page)
         country = traveler.country.lower() if traveler.country else ""
         background_image = get_country_image_path(country)
@@ -133,14 +142,15 @@ def trip_detail_route(traveler_id):
             "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
             "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
             "budget": format_budget_range(traveler.budget_range or "N/A"),
-            "adults": traveler.adults or 1,
-            "children": traveler.children or 0,
+            "adults": adults,
+            "children": children,
             "accommodation": format_accommodation_type(traveler.accommodation_type or "N/A"),
             "itinerary": itinerary_list,
             "background_image": background_image,
             "country": country,
             "traveler_id": traveler_id,
-            "total_price": total_price
+            "total_price": total_price,
+            "average_price_per_person": average_price_per_person
         }
         
         return render_template("trip_detail.html", **data)
@@ -199,6 +209,65 @@ def delete_trip_route(traveler_id):
         db.session.expire_all()
         print(f"Error deleting trip: {e}")
         flash("Error deleting trip. Please try again.", "danger")
+        return redirect(url_for("itinerary.my_trips_route"))
+
+
+@itinerary_bp.route("/trip/<int:traveler_id>/preferences")
+@login_required
+def restore_preferences_route(traveler_id):
+    """
+    Restore preferences from a saved trip to session and redirect to step2.
+    
+    This allows users to edit their preferences from a saved trip.
+    """
+    try:
+        # Get traveler info
+        traveler = safe_db_query(Traveler.query.get_or_404, traveler_id)
+        
+        # Verify that this trip belongs to the current user
+        itinerary_items = safe_db_query(
+            lambda: Itinerary.query.filter_by(
+                traveler_id=traveler_id,
+                user_id=current_user.user_id
+            ).first()
+        )
+        
+        if not itinerary_items:
+            flash("Trip not found or you don't have permission to access it.", "warning")
+            return redirect(url_for("itinerary.my_trips_route"))
+        
+        # Prepare preferences data from traveler
+        preferences_data = {
+            'country': traveler.country,
+            'start_date': traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else None,
+            'end_date': traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else None,
+            'budget_range': traveler.budget_range,
+            'adults': traveler.adults,
+            'children': traveler.children,
+            'accommodation_type': traveler.accommodation_type,
+            'interest_culture': traveler.interest_culture,
+            'interest_food': traveler.interest_food,
+            'interest_wildlife': traveler.interest_wildlife,
+            'interest_history': traveler.interest_history,
+            'interest_beach': traveler.interest_beach
+        }
+        
+        # Calculate duration
+        if traveler.start_date and traveler.end_date:
+            duration = (traveler.end_date - traveler.start_date).days + 1
+            preferences_data['duration'] = str(duration)
+        else:
+            preferences_data['duration'] = "N/A"
+        
+        # Restore preferences to session
+        restore_session_preferences(preferences_data)
+        
+        # Redirect to step2 to edit preferences
+        return redirect(url_for("main.step2_route"))
+        
+    except Exception as e:
+        print(f"Error restoring preferences: {e}")
+        flash("Error restoring preferences. Please try again.", "danger")
         return redirect(url_for("itinerary.my_trips_route"))
 
 
