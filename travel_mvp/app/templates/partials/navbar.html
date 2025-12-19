@@ -1,7 +1,10 @@
 <!-- navbar.html -->
 <div class="navbar">
     <div class="nav-left">
-        <a href="{{ url_for('main.index', reset='all') }}">AfriGuide</a>
+        <a href="{{ url_for('main.index', reset='all') }}" class="nav-logo-container">
+            <img src="https://dfpsbewjkvhrietohwes.supabase.co/storage/v1/object/public/website_design/_5948c65b-2408-4c52-b7f2-41c3ebe52387-removebg-preview.png" alt="AfriGuide Logo" class="nav-logo">
+            <span class="nav-brand-text">AfriGuide</span>
+        </a>
     </div>
     <button class="navbar-toggle" id="navbar-toggle" aria-label="Toggle navigation">
         <span></span>
