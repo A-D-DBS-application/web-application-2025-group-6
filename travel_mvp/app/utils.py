@@ -216,24 +216,65 @@ def restore_session_preferences(saved_data: Dict[str, Any]):
 
 def get_country_image_path(country: Optional[str]) -> str:
     """
-    Get the image path for a given country.
+    Get the image URL for a given country from Supabase home_pictures table.
+    Also supports "Home" for hero image.
     
     Args:
-        country: Country name (case-insensitive)
+        country: Country name (case-insensitive) or "Home" for hero image
         
     Returns:
-        Path to country image or default Tanzania image
+        Supabase URL for country image or default Tanzania image URL
     """
     if not country:
-        return "/static/img/tanzania.jpg"
+        country = "tanzania"
     
     country_lower = country.lower()
-    country_image_map = {
-        "uganda": "/static/img/uganda.jpg",
-        "rwanda": "/static/img/rwanda.jpg",
-        "tanzania": "/static/img/tanzania.jpg"
+    # Map country names to database values
+    country_map = {
+        "uganda": "Uganda",
+        "rwanda": "Rwanda",
+        "tanzania": "Tanzania",
+        "home": "Home"
     }
-    return country_image_map.get(country_lower, "/static/img/tanzania.jpg")
+    country_db_value = country_map.get(country_lower, "Tanzania")
+    
+    try:
+        from sqlalchemy import text
+        # Use raw SQL query for table name with space and column name with slash
+        query = text("""
+            SELECT url 
+            FROM "home pictures" 
+            WHERE "country/type" = :country_type 
+            LIMIT 1
+        """)
+        result = safe_db_query(
+            lambda: db.session.execute(query, {"country_type": country_db_value}).fetchone()
+        )
+        
+        if result and result[0]:
+            return result[0]
+    except Exception as e:
+        print(f"Error fetching country image from database: {e}")
+    
+    # Fallback to default (Tanzania) if not found or error
+    try:
+        from sqlalchemy import text
+        query = text("""
+            SELECT url 
+            FROM "home pictures" 
+            WHERE "country/type" = 'Tanzania' 
+            LIMIT 1
+        """)
+        result = safe_db_query(
+            lambda: db.session.execute(query).fetchone()
+        )
+        if result and result[0]:
+            return result[0]
+    except Exception as e:
+        print(f"Error fetching default image from database: {e}")
+    
+    # No fallback - return empty string if database fails
+    return ""
 
 
 def format_accommodation_type(accommodation_type: Optional[str]) -> str:

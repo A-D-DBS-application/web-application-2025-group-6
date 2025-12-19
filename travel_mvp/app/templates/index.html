@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="hero">
+<div class="hero" {% if hero_image %}style="background-image: url('{{ hero_image }}');"{% endif %}>
     <h1>Discover Your Perfect Journey</h1>
 </div>
 
@@ -11,7 +11,7 @@
     
     {# UGANDA CARD #}
     <div class="card">
-        <img src="/static/img/uganda.jpg" alt="Uganda">
+        <img src="{{ get_country_image_path('Uganda') }}" alt="Uganda">
         <h3 class="card-title">Uganda</h3>
         <p class="card-text">
             The Pearl of Africa. A beautiful mix of lakes, mountains and wildlife.
@@ -25,7 +25,7 @@
 
     {# RWANDA CARD #}
     <div class="card">
-        <img src="/static/img/rwanda.jpg" alt="Rwanda">
+        <img src="{{ get_country_image_path('Rwanda') }}" alt="Rwanda">
         <h3 class="card-title">Rwanda</h3>
         <p class="card-text">
             Land of a Thousand Hills with stunning green landscapes and culture.
@@ -37,7 +37,7 @@
 
     {# TANZANIA CARD #}
     <div class="card">
-        <img src="/static/img/tanzania.jpg" alt="Tanzania">
+        <img src="{{ get_country_image_path('Tanzania') }}" alt="Tanzania">
         <h3 class="card-title">Tanzania</h3>
         <p class="card-text">
             Home of Kilimanjaro, Serengeti and Zanzibar — perfect for adventure.

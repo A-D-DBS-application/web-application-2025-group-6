@@ -12,13 +12,8 @@
             {% for trip in trips %}
                 <div class="trip-card-modern">
                     <div class="trip-card-image">
-                        {% set country_lower = (trip.traveler.country or '').lower() %}
-                        {% if country_lower == 'uganda' %}
-                            <img src="{{ url_for('static', filename='img/Uganda.jpg') }}" alt="{{ trip.traveler.country }}">
-                        {% elif country_lower == 'rwanda' %}
-                            <img src="{{ url_for('static', filename='img/Rwanda.jpg') }}" alt="{{ trip.traveler.country }}">
-                        {% elif country_lower == 'tanzania' %}
-                            <img src="{{ url_for('static', filename='img/Tanzania.jpg') }}" alt="{{ trip.traveler.country }}">
+                        {% if trip.traveler.country %}
+                            <img src="{{ get_country_image_path(trip.traveler.country) }}" alt="{{ trip.traveler.country }}">
                         {% else %}
                             <div class="country-placeholder">{{ trip.traveler.country or 'Trip' }}</div>
                         {% endif %}

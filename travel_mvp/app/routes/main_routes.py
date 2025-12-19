@@ -305,6 +305,9 @@ def index():
     # Check if this is a full reset (from "Start a new planning" button)
     reset_all = request.args.get('reset') == 'all'
     
+    # Get hero image from Supabase
+    hero_image = get_country_image_path("Home")
+    
     # Flask-Login uses these keys in session - preserve them
     flask_login_keys = ['_user_id', '_fresh', '_id', '_remember_me']
     
@@ -318,7 +321,7 @@ def index():
         if 'duration' in session:
             del session['duration']
     
-    return render_template("index.html")
+    return render_template("index.html", hero_image=hero_image)
 
 # NIEUWE ROUTE: Verwerkt de klik op de 'Discover [Land]' knoppen
 @main_bp.route("/start_trip/<country_name>", methods=["POST"])

@@ -89,6 +89,18 @@ class Itinerary(db.Model):
     # En via de foreign key kunnen we: itinerary.activity_type gebruiken (automatisch via backref)
 
 
+class HomePicture(db.Model):
+    # Tabel voor home/country afbeeldingen opgeslagen in Supabase
+    # Note: Table name in Supabase is "home pictures" (with space)
+    # Using SQLAlchemy's text() for table name with space
+    __tablename__ = 'home pictures'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    url = db.Column(db.String(500), nullable=False)  # Supabase URL
+    country_type = db.Column('country/type', db.String(50))  # Column name in Supabase is 'country/type' (with slash)
+
+
 # =========================================================================
 # 2. BESTAANDE MARKTPLAATS MODELLEN (BEHOUDEN)
 # Deze zijn nuttig voor de volledige casus, maar niet direct voor de MVP planning

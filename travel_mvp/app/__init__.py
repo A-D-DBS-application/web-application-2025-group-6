@@ -34,6 +34,12 @@ def create_app(config_class=Config):
     def format_budget_filter(budget_range):
         from app.utils import format_budget_range
         return format_budget_range(budget_range)
+    
+    # Make get_country_image_path available in templates
+    @app.template_global()
+    def get_country_image_path(country):
+        from app.utils import get_country_image_path as get_image_path
+        return get_image_path(country)
 
     # Register all blueprints
     from app.routes import main_bp
