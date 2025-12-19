@@ -157,7 +157,6 @@
             <a href="{{ url_for('auth.login_route') }}" class="primary-action-btn">Login to Save Trip</a>
         {% endif %}
         <a href="{{ url_for('main.index', reset='all') }}" class="secondary-action-btn">Start a new planning</a>
-        <p>Would you like to save or discuss this plan? Contact your partner.</p>
     </div>
 
 </div>
@@ -425,23 +424,16 @@ document.addEventListener("DOMContentLoaded", function() {
                     updateEndDateDisplay(data.new_end_date);
                 }
                 
-                // For Rest Day replacement, update the card directly without regenerating
-                // This keeps the Rest Day on the same day as the original activity
+                // Always regenerate itinerary to ensure rest days can be edited immediately
+                // and to maintain route optimization
                 if (data.is_rest_day) {
+                    // Update card immediately for visual feedback
                     updateCardForRestDay(card);
-                    
-                    // Update total price using updateTotalPrice function
                     updateTotalPrice();
-                    
-                    // Only regenerate if rest days were added to maintain duration
-                    // (This happens when the original activity was longer than 1 day)
-                    if (data.rest_days_added && data.rest_days_added > 0) {
-                        regenerateItinerary();
-                    }
-                } else {
-                    // For new activity replacement, always regenerate to optimize route
-                    regenerateItinerary();
                 }
+                
+                // Always regenerate to optimize route and allow immediate editing of rest days
+                regenerateItinerary();
             } else {
                 // Remove loading overlay on error
                 if (loadingOverlay.parentNode) {
@@ -942,75 +934,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     updateEndDateDisplay(data.new_end_date);
                 }
                 
-                // Update total price using updateTotalPrice function
-                updateTotalPrice();
-                
-                // Create new card element
-                // Use the day from API response, ensure it's at least day 2
-                let newDay = parseInt(data.activity.day) || 0;
-                if (newDay < 2) {
-                    // Calculate next day if not provided or invalid
-                    const allCards = document.querySelectorAll('.itinerary-card');
-                    let maxDay = 1;
-                    allCards.forEach(card => {
-                        const day = parseInt(card.dataset.day) || 1;
-                        const isCardMultiDay = card.classList.contains('multi-day-card');
-                        const cardDurationText = card.querySelector('.duration-note-large');
-                        const cardDuration = cardDurationText ? parseInt(cardDurationText.textContent.match(/\d+/)?.[0] || '1') : 1;
-                        const cardEndDay = isCardMultiDay ? day + cardDuration - 1 : day;
-                        maxDay = Math.max(maxDay, cardEndDay);
-                    });
-                    newDay = Math.max(maxDay + 1, 2); // Minimum day 2
-                }
-                
-                const isMultiDay = activityDuration > 1;
-                const dayDisplay = isMultiDay ? `Day ${newDay} – ${newDay + activityDuration - 1}` : `Day ${newDay}`;
-                
-                const newCard = document.createElement('div');
-                newCard.className = `itinerary-card ${isMultiDay ? 'multi-day-card' : ''}`;
-                newCard.dataset.itineraryId = data.activity.itinerary_id;
-                newCard.dataset.day = newDay;
-                newCard.dataset.price = newPrice;
-                
-                newCard.innerHTML = `
-                    <button class="remove-activity-btn" 
-                            data-itinerary-id="${data.activity.itinerary_id}" 
-                            data-price="${newPrice}"
-                            title="Remove activity"
-                            type="button"
-                            onclick="handleRemoveActivity(this); return false;">
-                        <span class="icon-close">×</span>
-                    </button>
-                    <div class="card-image-wrapper">
-                        ${activityImage ? `<img src="${activityImage}" alt="${activityName}" class="activity-img">` : 
-                          `<img src="https://via.placeholder.com/250x180?text=${encodeURIComponent(activityName)}" alt="${activityName}" class="activity-img">`}
-                    </div>
-                    <div class="card-content">
-                        <span class="day-label">${dayDisplay}</span>
-                        <h3>${activityName}</h3>
-                        <p>${activityDescription}</p>
-                        <div class="activity-meta-info">
-                            ${newPrice > 0 ? `<span class="activity-price">$${newPrice.toFixed(2)} p.p.</span>` : ''}
-                            ${isMultiDay ? `<p class="duration-note-large"><i class="icon-clock"></i> **Duration:** ${activityDuration} days</p>` : ''}
-                        </div>
-                    </div>
-                `;
-                
-                // Add card to the end of the itinerary grid
-                const itineraryGrid = document.getElementById('itinerary-grid');
-                itineraryGrid.appendChild(newCard);
-                
-                // Animate the new card in
-                newCard.style.opacity = '0';
-                newCard.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    newCard.style.transition = 'all 0.4s ease-out';
-                    newCard.style.opacity = '1';
-                    newCard.style.transform = 'translateY(0)';
-                }, 10);
-                
                 // Close modal
                 addActivityModal.hide();
+                
+                // Always regenerate itinerary to optimize route and maintain correct day numbers
+                // This ensures the new activity is inserted at the optimal geographical position
+                regenerateItinerary();
             } else {
                 selectBtn.disabled = false;
                 selectBtn.textContent = 'Select';
