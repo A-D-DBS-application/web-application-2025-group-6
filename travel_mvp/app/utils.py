@@ -465,3 +465,80 @@ def prepare_trip_template_data(traveler, itinerary_list, total_price, average_pr
     }
 
 
+def optimize_itinerary_route(itinerary_list, country):
+    """
+    Optimize the order of activities in an itinerary using route optimization.
+    
+    Shared function used by result_route and result_from_traveler_route to avoid duplication.
+    This function takes an itinerary list and reorders activities based on geographic optimization.
+    
+    Args:
+        itinerary_list: List of itinerary items with activity_type_id
+        country: Country name for route optimization
+        
+    Returns:
+        Optimized itinerary list with activities reordered and day numbers recalculated
+    """
+    from app.optimizer import solve_travel_route
+    
+    if not country or not itinerary_list:
+        return itinerary_list
+    
+    try:
+        # Extract activity IDs from itinerary_list
+        activity_ids = [item.get("activity_type_id") for item in itinerary_list if item.get("activity_type_id") is not None]
+        
+        if len(activity_ids) < 1:
+            return itinerary_list
+        
+        # Call route optimizer
+        optimized_activities = solve_travel_route(activity_ids, country=country)
+        
+        if not optimized_activities or len(optimized_activities) == 0:
+            return itinerary_list
+        
+        # Create mapping of activity_id to item in itinerary_list
+        activity_to_item = {}
+        for item in itinerary_list:
+            activity_id = item.get("activity_type_id")
+            if activity_id:
+                activity_to_item[activity_id] = item
+        
+        # Rebuild itinerary_list in the exact order of optimized_activities
+        # Recalculate day numbers based on new order and duration_days
+        new_itinerary_list = []
+        current_day = 1
+        
+        # Loop through optimized_activities in the exact order
+        for opt_activity in optimized_activities:
+            activity_id = opt_activity.activity_type_id
+            activity_duration = opt_activity.duration_days or 1
+            
+            if activity_id in activity_to_item:
+                item = activity_to_item[activity_id].copy()
+                # Update day based on new order and duration_days
+                item["day"] = current_day
+                item["activity"] = opt_activity  # Use the optimized activity object
+                new_itinerary_list.append(item)
+                current_day += activity_duration
+        
+        # Add activities that were not optimized (without coordinates)
+        optimized_activity_ids = {a.activity_type_id for a in optimized_activities}
+        for item in itinerary_list:
+            activity_id = item.get("activity_type_id")
+            if activity_id and activity_id not in optimized_activity_ids:
+                activity = item.get("activity")
+                activity_duration = (activity.duration_days if activity and hasattr(activity, 'duration_days') else 1)
+                item["day"] = current_day
+                new_itinerary_list.append(item)
+                current_day += activity_duration
+        
+        return new_itinerary_list
+        
+    except Exception as e:
+        print(f"Warning: Route optimization failed: {e}. Using original order.")
+        import traceback
+        traceback.print_exc()
+        return itinerary_list
+
+

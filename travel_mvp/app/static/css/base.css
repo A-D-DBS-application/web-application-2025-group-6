@@ -1,15 +1,20 @@
-/* BASE.CSS - Base styles and global resets */
+/* BASE.CSS - Base styles, global resets, and typography */
 
-/* GLOBAL */
 body {
-    font-family: Arial, sans-serif;
-    background: #f5f7ff;
+    font-family: 'Inter', 'Lato', sans-serif;
+    background: #FAF9F6;
     margin: 0;
     padding: 0;
+    color: #334155;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    color: #2E5239;
+    font-weight: 600;
 }
 
 a {
     text-decoration: none;
     color: inherit;
 }
-

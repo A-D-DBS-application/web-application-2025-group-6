@@ -28,7 +28,8 @@ from app.utils import (
     format_budget_range,
     prepare_itinerary_list_from_items,
     calculate_trip_prices,
-    prepare_trip_template_data
+    prepare_trip_template_data,
+    optimize_itinerary_route
 )
 import random 
 
@@ -435,71 +436,10 @@ def result_route():
     itinerary_list = generate_itinerary(new_traveler)
     
     # 4. Optimaliseer route VOORDAT items in database worden opgeslagen (voor alle landen met startpunt)
-    # Verander de volgorde: Roep de optimizer aan voordat je de items voor het eerst in de database opslaat
-    if country and itinerary_list:
-        try:
-            # Extract activity IDs from itinerary_list
-            activity_ids = [item.get("activity_type_id") for item in itinerary_list if item.get("activity_type_id") is not None]
-            # Startpunt wordt automatisch toegevoegd uit starting_points tabel
-            # Geen specifieke activiteit ID filter nodig
-            
-            if len(activity_ids) >= 1:
-                # Roep solve_travel_route aan om de lijst optimized_activities te verkrijgen
-                print(f"Calling solve_travel_route with {len(activity_ids)} activity IDs BEFORE saving to database...")
-                optimized_activities = solve_travel_route(activity_ids, country=country)
-                print(f"solve_travel_route returned {len(optimized_activities) if optimized_activities else 0} activities")
-                
-                if optimized_activities and len(optimized_activities) > 0:
-                    print(f"Optimizer returned {len(optimized_activities)} activities in optimized order")
-                    
-                    # Update de itinerary_list variabele direct nadat de optimizer klaar is
-                    # Zorg dat de lijst die naar render_template gaat (itinerary=itinerary_list) de exacte volgorde heeft van optimized_activities
-                    
-                    # Maak een mapping van activity_id naar item in itinerary_list
-                    activity_to_item = {}
-                    for item in itinerary_list:
-                        activity_id = item.get("activity_type_id")
-                        if activity_id:
-                            activity_to_item[activity_id] = item
-                    
-                    # Rebuild itinerary_list in de exacte volgorde van optimized_activities
-                    # Zorg dat de dagnummers in de UI opnieuw worden berekend op basis van de nieuwe volgorde en duration_days
-                    new_itinerary_list = []
-                    current_day = 1
-                    
-                    # Loop door optimized_activities in de exacte volgorde
-                    for opt_activity in optimized_activities:
-                        activity_id = opt_activity.activity_type_id
-                        activity_duration = opt_activity.duration_days or 1
-                        
-                        if activity_id in activity_to_item:
-                            item = activity_to_item[activity_id].copy()
-                            # Update day op basis van nieuwe volgorde en duration_days
-                            item["day"] = current_day
-                            item["activity"] = opt_activity  # Gebruik het geoptimaliseerde activity object
-                            new_itinerary_list.append(item)
-                            current_day += activity_duration
-                    
-                    # Voeg activiteiten toe die niet geoptimaliseerd werden (zonder coördinaten)
-                    optimized_activity_ids = {a.activity_type_id for a in optimized_activities}
-                    for item in itinerary_list:
-                        activity_id = item.get("activity_type_id")
-                        if activity_id and activity_id not in optimized_activity_ids:
-                            activity = item.get("activity")
-                            activity_duration = (activity.duration_days if activity and hasattr(activity, 'duration_days') else 1)
-                            item["day"] = current_day
-                            new_itinerary_list.append(item)
-                            current_day += activity_duration
-                    
-                    # Vervang itinerary_list met de geoptimaliseerde versie
-                    itinerary_list = new_itinerary_list
-                    print(f"✓ itinerary_list updated with optimized order. Total items: {len(itinerary_list)}")
-                    print(f"✓ Day numbers recalculated based on new order and duration_days")
-                    
-        except Exception as e:
-            print(f"Warning: Route optimization failed: {e}. Using original order.")
-            import traceback
-            traceback.print_exc()
+    # Gebruik shared function om duplicatie te voorkomen
+    print(f"Calling optimize_itinerary_route with {len(itinerary_list)} items for country {country}...")
+    itinerary_list = optimize_itinerary_route(itinerary_list, country)
+    print(f"✓ itinerary_list optimized. Total items: {len(itinerary_list)}")
     
     # 5. Opslaan van het gegenereerde reisplan via ORM (SQLAlchemy)
     # Nu opslaan met de geoptimaliseerde volgorde

@@ -1,19 +1,18 @@
 /* LAYOUT.CSS - Layout styles: containers, grids, positioning */
 
-/* STEP CONTAINER */
 .step-container {
     width: 100%;
-    max-width: 1100px; /* Breder gemaakt voor resultaatgrid */
+    max-width: 1100px;
     margin: 40px auto;
     padding: 20px;
 }
 
-/* SECTION TITLE */
 .section-title {
     text-align: center;
     margin: 40px 0 20px;
     font-size: 26px;
-    color: #333;
+    color: #2E5239;
+    font-family: 'Playfair Display', serif;
 }
 
 /* DESTINATIONS GRID */
@@ -52,8 +51,125 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 15px;
 }
 
+/* HERO */
+.hero {
+    width: 100%;
+    height: 420px;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    --bg-image-url: none;
+}
+
+.hero[style*="--bg-image-url"] {
+    background-image: var(--bg-image-url);
+}
+
+/* TRIP HEADER */
+.trip-header {
+    width: 100%;
+    height: 400px;
+    background-size: cover;
+    background-position: center;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    --bg-image-url: none;
+}
+
+.trip-header[style*="--bg-image-url"] {
+    background-image: var(--bg-image-url);
+}
+
+.trip-header-uganda {
+    background-position: center bottom;
+}
+
+.trip-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.4) 100%);
+    z-index: 1;
+}
+
+.trip-header-overlay {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    color: white;
+    text-align: center;
+}
+
+/* Responsive Layout */
+@media (max-width: 768px) {
+    /* Step Container Mobile */
+    .step-container {
+        padding: 15px;
+        margin: 20px auto;
+    }
+    
+    /* Destinations Grid Mobile */
+    .destinations {
+        width: 100%;
+        padding: 0 15px;
+        gap: 20px;
+    }
+    
+    /* Trip Summary Mobile */
+    .trip-summary-container {
+        padding: 15px;
+    }
+    
+    .trip-summary-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    /* Hero Mobile */
+    .hero {
+        height: 300px;
+        padding: 20px;
+    }
+    
+    .trip-header {
+        height: 300px;
+    }
+    
+    /* Section Title Mobile */
+    .section-title {
+        font-size: 22px;
+        margin: 30px 0 15px;
+        padding: 0 20px;
+    }
+    
+    /* Itinerary Header Section Mobile */
+    .itinerary-header-section {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .itinerary-header-section .section-title {
+        margin: 0;
+        text-align: left;
+    }
+}
