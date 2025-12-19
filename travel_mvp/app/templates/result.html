@@ -20,7 +20,7 @@
 
             <div class="summary-box detail-box">
                 <h3>Travellers</h3>
-                <p>{{ adults or "1" }} Adults | {{ children or "0" }} Children</p>
+                <p>{{ adults or 1 }} {{ "Adult" if (adults or 1) == 1 else "Adults" }} | {{ children or 0 }} {{ "Child" if (children or 0) == 1 else "Children" }}</p>
             </div>
 
             <div class="summary-box detail-box">

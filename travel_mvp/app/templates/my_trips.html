@@ -38,7 +38,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Travelers:</span>
-                                <span class="detail-value">{{ trip.traveler.adults or 1 }} Adults{% if trip.traveler.children and trip.traveler.children > 0 %}, {{ trip.traveler.children }} Children{% endif %}</span>
+                                <span class="detail-value">{{ trip.traveler.adults or 1 }} {% if (trip.traveler.adults or 1) == 1 %}Adult{% else %}Adults{% endif %}{% if trip.traveler.children and trip.traveler.children > 0 %}, {{ trip.traveler.children }} {% if trip.traveler.children == 1 %}Child{% else %}Children{% endif %}{% endif %}</span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Accommodation:</span>
