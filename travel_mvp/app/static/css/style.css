@@ -19,6 +19,7 @@ a {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
 }
 
 .navbar .nav-left a {
@@ -26,7 +27,17 @@ a {
     font-size: 20px;
 }
 
+.navbar .nav-right {
+    display: flex;
+    align-items: center;
+}
+
 .navbar .nav-right a {
+    margin-left: 16px;
+    font-weight: 500;
+}
+
+.navbar .nav-right .nav-username {
     margin-left: 16px;
     font-weight: 500;
 }
@@ -35,6 +46,25 @@ a {
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: auto;
+}
+
+/* Hamburger menu toggle button (hidden on desktop) */
+.navbar-toggle {
+    display: none;
+    flex-direction: column;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    gap: 4px;
+}
+
+.navbar-toggle span {
+    width: 25px;
+    height: 3px;
+    background: white;
+    transition: all 0.3s;
+    border-radius: 2px;
 }
 
 /* HERO */
@@ -1370,6 +1400,7 @@ a {
     margin-bottom: 12px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -1499,13 +1530,321 @@ a {
 
 /* Responsive */
 @media (max-width: 768px) {
+    /* Navbar Mobile */
+    .navbar {
+        padding: 12px 20px;
+        flex-wrap: wrap;
+    }
+    
+    .navbar-toggle {
+        display: flex;
+    }
+    
+    .navbar .nav-right {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .navbar .nav-right.active {
+        display: flex;
+    }
+    
+    .navbar .nav-right a,
+    .navbar .nav-right .nav-username {
+        margin-left: 0;
+        margin-bottom: 12px;
+        padding: 8px 0;
+        width: 100%;
+        display: block;
+    }
+    
+    .navbar-toggle.active span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+    }
+    
+    .navbar-toggle.active span:nth-child(2) {
+        opacity: 0;
+    }
+    
+    .navbar-toggle.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px);
+    }
+    
+    /* Hero Mobile */
+    .hero {
+        height: 300px;
+        padding: 20px;
+    }
+    
+    .hero h1 {
+        font-size: 28px;
+        text-align: center;
+        padding: 0 10px;
+    }
+    
+    .trip-header {
+        height: 300px;
+    }
+    
+    .trip-header-overlay h1 {
+        font-size: 32px;
+    }
+    
+    .trip-header-overlay p {
+        font-size: 16px;
+        padding: 0 20px;
+    }
+    
+    /* Section Title Mobile */
+    .section-title {
+        font-size: 22px;
+        margin: 30px 0 15px;
+        padding: 0 20px;
+    }
+    
+    /* Step Container Mobile */
+    .step-container {
+        padding: 15px;
+        margin: 20px auto;
+    }
+    
+    .step-card {
+        padding: 20px;
+    }
+    
+    .step-card-header h2 {
+        font-size: 20px;
+    }
+    
+    /* Destinations Grid Mobile */
+    .destinations {
+        width: 100%;
+        padding: 0 15px;
+        gap: 20px;
+    }
+    
+    /* Buttons Mobile - Touch Friendly */
+    .card-btn,
+    .next-btn,
+    .back-btn,
+    .primary-action-btn,
+    .secondary-action-btn {
+        padding: 14px 20px;
+        font-size: 16px;
+        min-height: 44px; /* Touch target size */
+    }
+    
+    .counter-btn,
+    .interest-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    /* Form Inputs Mobile */
+    .step-form input,
+    .step-form select,
+    .date-picker-input {
+        padding: 14px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Trip Summary Mobile */
+    .trip-summary-container {
+        padding: 15px;
+    }
+    
+    .trip-summary-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .detail-box {
+        padding: 15px;
+    }
+    
+    /* Itinerary Cards Mobile */
+    .itinerary-card {
+        flex-direction: column;
+    }
+    
+    .card-image-wrapper {
+        flex: 1 1 100%;
+        height: 200px;
+    }
+    
+    .card-content {
+        padding: 15px;
+    }
+    
+    /* Price Display Mobile */
+    .total-price-display {
+        flex-direction: column;
+        padding: 15px;
+        gap: 10px;
+    }
+    
+    .price-info-row {
+        gap: 10px;
+    }
+    
+    .total-price-value {
+        font-size: 1.2em;
+    }
+    
+    /* Action Section Mobile */
+    .action-section {
+        padding: 15px;
+    }
+    
+    .action-section .primary-action-btn,
+    .action-section .secondary-action-btn {
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+        margin-left: 0;
+    }
+    
+    /* Activities Grid Mobile */
     .activities-grid {
         grid-template-columns: 1fr;
     }
     
     .remove-activity-btn {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         font-size: 18px;
+        top: 8px;
+        right: 8px;
+    }
+    
+    /* My Trips Mobile */
+    .trips-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .trip-card-header-modern {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .trip-badge {
+        align-self: flex-start;
+    }
+    
+    /* Modal Mobile */
+    .modal {
+        width: 90%;
+        max-width: 360px;
+        margin: 20px;
+    }
+    
+    /* Itinerary Header Section Mobile */
+    .itinerary-header-section {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .itinerary-header-section .section-title {
+        margin: 0;
+        text-align: left;
+    }
+    
+    /* Progress Bar Mobile */
+    .progress-label {
+        font-size: 16px;
+    }
+    
+    /* Add Activity Section Mobile */
+    .add-activity-section {
+        padding: 0 15px;
+    }
+    
+    .add-activity-btn {
+        width: 100%;
+        padding: 14px 20px;
+    }
+    
+    /* Replace Modal Mobile */
+    .replace-modal-body,
+    .replace-selection-modal-body {
+        padding: 20px;
+        max-height: 60vh;
+    }
+    
+    .replace-option-btn {
+        padding: 15px;
+        gap: 15px;
+    }
+    
+    .replace-option-icon {
+        font-size: 2em;
+    }
+    
+    /* Card Text Mobile */
+    .card-text {
+        font-size: 13px;
+        padding: 0 12px;
+    }
+    
+    /* Form Groups Mobile */
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        font-size: 15px;
+        margin-bottom: 8px;
+    }
+    
+    /* Interest Buttons Mobile */
+    .interest-buttons {
+        gap: 8px;
+    }
+    
+    /* Counter Box Mobile */
+    .counter-box {
+        gap: 15px;
+    }
+    
+    /* Buttons Container Mobile */
+    .buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .buttons .next-btn,
+    .buttons .back-btn {
+        width: 100%;
+    }
+    
+    /* Trip Card Actions Mobile */
+    .trip-card-actions {
+        padding-top: 15px;
+    }
+    
+    .view-trip-btn,
+    .delete-trip-btn {
+        padding: 14px 20px;
+        font-size: 15px;
+    }
+    
+    /* No Results Mobile */
+    .no-results-card-modern {
+        padding: 40px 20px;
+    }
+    
+    .no-results-card-modern h3 {
+        font-size: 1.5em;
+    }
+    
+    .no-results-card-modern p {
+        font-size: 1em;
     }
 }

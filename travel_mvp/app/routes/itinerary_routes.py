@@ -8,7 +8,16 @@ from flask import Blueprint, render_template, flash, redirect, url_for, session
 from flask_login import login_required, current_user
 from app import db
 from app.models import Itinerary, Traveler
-from app.utils import safe_db_query, format_accommodation_type, format_budget_range, restore_session_preferences, parse_date
+from app.utils import (
+    safe_db_query, 
+    format_accommodation_type, 
+    format_budget_range, 
+    restore_session_preferences, 
+    parse_date,
+    prepare_itinerary_list_from_items,
+    calculate_trip_prices,
+    prepare_trip_template_data
+)
 
 itinerary_bp = Blueprint("itinerary", __name__)
 
@@ -79,79 +88,24 @@ def trip_detail_route(traveler_id):
             flash("No itinerary found for this trip.", "warning")
             return redirect(url_for("itinerary.my_trips_route"))
         
-        # Prepare itinerary list similar to result page
-        from app.utils import get_country_image_path, format_date_for_display
-        from app.models import ActivityType
-        
-        itinerary_list = []
-        total_price_per_person = 0
-        
-        # Sort items by day
+        # Prepare itinerary list using shared function
         sorted_items = sorted(itinerary_items, key=lambda x: x.day)
+        itinerary_list = prepare_itinerary_list_from_items(sorted_items, include_placeholder=True)
         
-        for item in sorted_items:
-            # Get activity details if it's a real activity (not placeholder)
-            activity = None
-            if item.day_activity_id:
-                activity = safe_db_query(ActivityType.query.get, item.day_activity_id)
-            
-            # Create activity object similar to result page
-            if activity:
-                activity_obj = activity
-                price = float(activity.price_estimation) if activity.price_estimation else 0
-                total_price_per_person += price
-            else:
-                # Placeholder activity (Local Exploration)
-                class PlaceholderActivity:
-                    def __init__(self, title, description):
-                        self.activity_type_id = None
-                        self.name = title
-                        self.description = description
-                        self.duration_days = 1
-                        self.price_estimation = 0
-                        self.images_url_text = None
-                        self.interest_categ = []
-                        self.latitude = None
-                        self.longitude = None
-                activity_obj = PlaceholderActivity(item.title, item.description)
-                price = 0
-            
-            itinerary_list.append({
-                "day": item.day,
-                "title": item.title,
-                "description": item.description,
-                "activity_type_id": activity.activity_type_id if activity else None,
-                "itinerary_id": item.itinerary_id,
-                "activity": activity_obj
-            })
+        # Calculate prices using shared function
+        _, total_price, average_price_per_person = calculate_trip_prices(
+            itinerary_list, 
+            traveler.adults, 
+            traveler.children
+        )
         
-        # Calculate total price: (prijs pp * adults) + (prijs pp * children * 0.5)
-        adults = traveler.adults or 1
-        children = traveler.children or 0
-        total_price = (total_price_per_person * adults) + (total_price_per_person * children * 0.5)
-        
-        # Calculate average price per person
-        total_travelers = adults + children
-        average_price_per_person = total_price / total_travelers if total_travelers > 0 else 0
-        
-        # Prepare data for template (similar to result page)
-        country = traveler.country.lower() if traveler.country else ""
-        background_image = get_country_image_path(country)
-        
-        data = {
-            "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
-            "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
-            "budget": format_budget_range(traveler.budget_range or "N/A"),
-            "adults": adults,
-            "children": children,
-            "accommodation": format_accommodation_type(traveler.accommodation_type or "N/A"),
-            "itinerary": itinerary_list,
-            "background_image": background_image,
-            "country": country,
-            "traveler_id": traveler_id,
-            "total_price": total_price,
-            "average_price_per_person": average_price_per_person
-        }
+        # Prepare template data using shared function
+        data = prepare_trip_template_data(
+            traveler,
+            itinerary_list,
+            total_price,
+            average_price_per_person
+        )
         
         return render_template("trip_detail.html", **data)
         

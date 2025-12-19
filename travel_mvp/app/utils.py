@@ -13,7 +13,7 @@ from flask import session
 from app import db
 from sqlalchemy import inspect
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List, Callable, Tuple
 
 
 def parse_date(date_str: Optional[str]) -> Optional[datetime.date]:
@@ -336,5 +336,132 @@ def format_budget_range(budget_range: Optional[str]) -> str:
     
     # Return formatted name if found, otherwise return original with first letter capitalized
     return budget_map.get(budget_lower, budget_range.capitalize())
+
+
+def prepare_itinerary_list_from_items(itinerary_items, include_placeholder=True):
+    """
+    Convert database itinerary items to template-ready list format.
+    
+    Shared function used by both result_route and trip_detail_route to avoid duplication.
+    
+    Args:
+        itinerary_items: List of Itinerary database objects
+        include_placeholder: Whether to create placeholder activity objects for items without activity
+        
+    Returns:
+        List of itinerary dictionaries ready for template rendering
+    """
+    from app.models import ActivityType
+    from app.utils import safe_db_query
+    
+    itinerary_list = []
+    
+    for item in itinerary_items:
+        activity = None
+        if item.day_activity_id:
+            activity = safe_db_query(ActivityType.query.get, item.day_activity_id)
+        
+        if activity:
+            activity_obj = activity
+        elif include_placeholder:
+            # Placeholder activity (Local Exploration or Rest Day)
+            class PlaceholderActivity:
+                def __init__(self, title, description):
+                    self.activity_type_id = None
+                    self.name = title
+                    self.description = description
+                    self.duration_days = 1
+                    self.price_estimation = 0
+                    self.images_url_text = None
+                    self.interest_categ = []
+                    self.latitude = None
+                    self.longitude = None
+            activity_obj = PlaceholderActivity(item.title or "Rest Day", item.description or "A relaxing day to unwind.")
+        else:
+            activity_obj = None
+        
+        itinerary_list.append({
+            "day": item.day,
+            "title": item.title or (activity.name if activity else "Rest Day"),
+            "description": item.description or (activity.description if activity else "A relaxing day to unwind."),
+            "activity_type_id": activity.activity_type_id if activity else None,
+            "itinerary_id": item.itinerary_id,
+            "activity": activity_obj
+        })
+    
+    return itinerary_list
+
+
+def calculate_trip_prices(itinerary_list, adults, children):
+    """
+    Calculate total price and average price per person for a trip.
+    
+    Shared function used by both result_route and trip_detail_route to avoid duplication.
+    
+    Args:
+        itinerary_list: List of itinerary items with activity objects
+        adults: Number of adults
+        children: Number of children
+        
+    Returns:
+        Tuple of (total_price_per_person, total_price, average_price_per_person)
+    """
+    total_price_per_person = 0
+    
+    for item in itinerary_list:
+        activity = item.get("activity")
+        if activity and hasattr(activity, 'price_estimation') and activity.price_estimation:
+            price = float(activity.price_estimation)
+            total_price_per_person += price
+    
+    # Calculate total price: (prijs pp * adults) + (prijs pp * children * 0.5)
+    adults = adults or 1
+    children = children or 0
+    total_price = (total_price_per_person * adults) + (total_price_per_person * children * 0.5)
+    
+    # Calculate average price per person
+    total_travelers = adults + children
+    average_price_per_person = total_price / total_travelers if total_travelers > 0 else 0
+    
+    return total_price_per_person, total_price, average_price_per_person
+
+
+def prepare_trip_template_data(traveler, itinerary_list, total_price, average_price_per_person):
+    """
+    Prepare template data dictionary for trip display pages.
+    
+    Shared function used by both result_route and trip_detail_route to avoid duplication.
+    
+    Args:
+        traveler: Traveler database object
+        itinerary_list: List of itinerary items
+        total_price: Total trip price
+        average_price_per_person: Average price per person
+        
+    Returns:
+        Dictionary with all data needed for trip template rendering
+    """
+    from app.utils import get_country_image_path, format_date_for_display, format_budget_range, format_accommodation_type
+    
+    country = traveler.country.lower() if traveler.country else ""
+    background_image = get_country_image_path(country)
+    
+    adults = traveler.adults or 1
+    children = traveler.children or 0
+    
+    return {
+        "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
+        "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
+        "budget": format_budget_range(traveler.budget_range or "N/A"),
+        "adults": adults,
+        "children": children,
+        "accommodation": format_accommodation_type(traveler.accommodation_type or "N/A"),
+        "itinerary": itinerary_list,
+        "background_image": background_image,
+        "country": country,
+        "traveler_id": traveler.traveler_id,
+        "total_price": total_price,
+        "average_price_per_person": average_price_per_person
+    }
 
 

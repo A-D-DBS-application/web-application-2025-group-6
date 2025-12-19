@@ -3,7 +3,12 @@
     <div class="nav-left">
         <a href="{{ url_for('main.index', reset='all') }}">AfriGuide</a>
     </div>
-    <div class="nav-right">
+    <button class="navbar-toggle" id="navbar-toggle" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    <div class="nav-right" id="nav-right">
         <a href="/">Home</a>
         {% if session.get('country') %}
             <a href="/step1">Preferences</a>
@@ -12,11 +17,26 @@
         {% endif %}
         {% if current_user.is_authenticated %}
             <a href="{{ url_for('itinerary.my_trips_route') }}">My Trips</a>
-            <span style="margin-left: 16px;">{{ current_user.username }}</span>
-            <a href="{{ url_for('auth.logout_route') }}" style="margin-left: 16px;">Log Out</a>
+            <span class="nav-username">{{ current_user.username }}</span>
+            <a href="{{ url_for('auth.logout_route') }}">Log Out</a>
         {% else %}
             <a href="{{ url_for('auth.login_route') }}">Log In</a>
         {% endif %}
     </div>
 </div>
+
+<script>
+    // Hamburger menu toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggle = document.getElementById('navbar-toggle');
+        const navRight = document.getElementById('nav-right');
+        
+        if (toggle && navRight) {
+            toggle.addEventListener('click', function() {
+                navRight.classList.toggle('active');
+                toggle.classList.toggle('active');
+            });
+        }
+    });
+</script>
 

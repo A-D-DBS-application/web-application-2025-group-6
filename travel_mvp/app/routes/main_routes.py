@@ -25,7 +25,10 @@ from app.utils import (
     check_column_exists,
     safe_db_query,
     format_accommodation_type,
-    format_budget_range
+    format_budget_range,
+    prepare_itinerary_list_from_items,
+    calculate_trip_prices,
+    prepare_trip_template_data
 )
 import random 
 
@@ -655,35 +658,8 @@ def result_from_traveler_route(traveler_id):
             flash("No itinerary found for this trip.", "warning")
             return redirect(url_for("main.index"))
         
-        # Prepare itinerary list from database
-        itinerary_list = []
-        for item in itinerary_items:
-            activity = None
-            if item.day_activity_id:
-                activity = safe_db_query(ActivityType.query.get, item.day_activity_id)
-            
-            # Check if this is a Rest Day activity
-            is_rest_day = activity and activity.name == "Rest Day"
-            
-            if activity:
-                itinerary_list.append({
-                    "itinerary_id": item.itinerary_id,
-                    "day": item.day,
-                    "title": item.title or activity.name,
-                    "description": item.description or activity.description,
-                    "activity_type_id": item.day_activity_id,
-                    "activity": activity
-                })
-            else:
-                # Fallback for items without activity (shouldn't happen with Rest Day fix)
-                itinerary_list.append({
-                    "itinerary_id": item.itinerary_id,
-                    "day": item.day,
-                    "title": item.title or "Rest Day",
-                    "description": item.description or "A relaxing day to unwind and enjoy the surroundings.",
-                    "activity_type_id": None,
-                    "activity": None
-                })
+        # Prepare itinerary list from database using shared function
+        itinerary_list = prepare_itinerary_list_from_items(itinerary_items, include_placeholder=True)
         
         # Regenerate optimized route if we have activities
         # BUT: Keep Rest Day activities on their original days (don't reorder them)
@@ -799,19 +775,20 @@ def result_from_traveler_route(traveler_id):
             # Keep everything as is, including Rest Days on their original days
             pass
         
-        # Prepare result data
-        data = {
-            "start": format_date_for_display(traveler.start_date.strftime('%Y-%m-%d') if traveler.start_date else ""),
-            "end": format_date_for_display(traveler.end_date.strftime('%Y-%m-%d') if traveler.end_date else ""),
-            "budget": format_budget_range(traveler.budget_range or "N/A"),
-            "adults": traveler.adults or 1,
-            "children": traveler.children or 0,
-            "accommodation": format_accommodation_type(traveler.accommodation_type or "N/A"),
-            "itinerary": itinerary_list,
-            "background_image": get_country_image_path(country),
-            "country": country,
-            "traveler_id": traveler_id
-        }
+        # Calculate prices using shared function
+        _, total_price, average_price_per_person = calculate_trip_prices(
+            itinerary_list, 
+            traveler.adults, 
+            traveler.children
+        )
+        
+        # Prepare template data using shared function
+        data = prepare_trip_template_data(
+            traveler,
+            itinerary_list,
+            total_price,
+            average_price_per_person
+        )
         
         return render_template("result.html", **data)
         
