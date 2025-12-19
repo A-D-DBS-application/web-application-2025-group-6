@@ -5,9 +5,10 @@ Handles AJAX requests for dynamic itinerary editing:
 - Removing activities from itinerary
 - Adding activities to itinerary
 - Fetching available activities by country
+- Saving preferences before login/signup
 """
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 from flask_login import login_required, current_user
 from app import db
 from app.models import ActivityType, Itinerary
@@ -15,6 +16,39 @@ from sqlalchemy import func, text
 from app.utils import safe_db_query, check_column_exists
 
 api_bp = Blueprint("api", __name__)
+
+
+@api_bp.route("/api/save-preferences", methods=["POST"])
+def save_preferences():
+    """
+    Save user preferences to session before redirecting to login/signup.
+    This ensures preferences are preserved when user logs in or signs up.
+    """
+    try:
+        data = request.get_json()
+        
+        # Save all preferences to session
+        if data.get("adults") is not None:
+            session["adults"] = int(data.get("adults", 1))
+        if data.get("children") is not None:
+            session["children"] = int(data.get("children", 0))
+        if data.get("accommodation_type"):
+            session["accommodation_type"] = data.get("accommodation_type")
+        if data.get("culture") is not None:
+            session["interest_culture"] = int(data.get("culture", 0))
+        if data.get("food") is not None:
+            session["interest_food"] = int(data.get("food", 0))
+        if data.get("wildlife") is not None:
+            session["interest_wildlife"] = int(data.get("wildlife", 0))
+        if data.get("history") is not None:
+            session["interest_history"] = int(data.get("history", 0))
+        if data.get("beach") is not None:
+            session["interest_beach"] = int(data.get("beach", 0))
+        
+        session.modified = True
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 
 @api_bp.route("/api/itinerary/<int:itinerary_id>/remove", methods=["POST"])

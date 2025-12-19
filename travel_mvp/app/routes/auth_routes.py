@@ -43,9 +43,22 @@ def login_route():
             # Log in the user
             login_user(user)
             
-            # Redirect to result page if user was in the middle of planning
+            # Check if user was in the middle of planning
+            # If all preferences are saved, redirect to result to generate trip
             if session.get("country") and session.get("start_date"):
-                return redirect(url_for("main.result_route"))
+                # Check if we have all step2 preferences
+                has_all_preferences = (
+                    session.get("adults") is not None and
+                    session.get("accommodation_type") and
+                    session.get("interest_culture") is not None
+                )
+                if has_all_preferences:
+                    # All preferences are there, redirect to result to generate trip
+                    return redirect(url_for("main.result_route"))
+                else:
+                    # Some preferences missing, go back to step2
+                    return redirect(url_for("main.step2_route"))
+            
             return redirect(url_for("main.index"))
     
     return render_template("login.html")

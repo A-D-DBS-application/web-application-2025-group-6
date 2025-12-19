@@ -266,17 +266,64 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        // Login button - redirect to login page
-        if (loginBtn) {
-            loginBtn.addEventListener('click', function() {
-                window.location.href = loginUrl;
+        // Function to save preferences before redirect
+        function savePreferencesBeforeRedirect(callback) {
+            // Collect all form data
+            const formData = {
+                adults: parseInt(document.getElementById('adults_input').value) || 1,
+                children: parseInt(document.getElementById('children_input').value) || 0,
+                accommodation_type: step2Form.querySelector('select[name="accommodation_type"]').value
+            };
+            
+            // Collect interest values from hidden inputs
+            const interestNames = ['culture', 'food', 'wildlife', 'history', 'beach'];
+            interestNames.forEach(name => {
+                const input = step2Form.querySelector(`input[name="${name}"]`);
+                if (input) {
+                    formData[name] = parseInt(input.value) || 0;
+                } else {
+                    formData[name] = 0;
+                }
+            });
+            
+            // Save preferences via API
+            fetch('/api/save-preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    callback();
+                } else {
+                    console.error('Failed to save preferences:', data.error);
+                    callback(); // Continue anyway
+                }
+            })
+            .catch(error => {
+                console.error('Error saving preferences:', error);
+                callback(); // Continue anyway
             });
         }
 
-        // Sign up button - redirect to login page (same page for now)
+        // Login button - save preferences then redirect to login page
+        if (loginBtn) {
+            loginBtn.addEventListener('click', function() {
+                savePreferencesBeforeRedirect(function() {
+                    window.location.href = loginUrl;
+                });
+            });
+        }
+
+        // Sign up button - save preferences then redirect to login page
         if (signupBtn) {
             signupBtn.addEventListener('click', function() {
-                window.location.href = loginUrl;
+                savePreferencesBeforeRedirect(function() {
+                    window.location.href = loginUrl;
+                });
             });
         }
     } else if (isAuthenticated && generateTripBtn) {
